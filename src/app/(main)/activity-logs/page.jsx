@@ -1,0 +1,219 @@
+'use client';
+import { useEffect, useState } from 'react';
+import { supabase } from '../../../lib/supabaseClient';
+import { Activity, FileText, Share2, UserMinus, Clock } from 'lucide-react';
+
+export default function ActivityLogs() {
+  const [logs, setLogs] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [userMap, setUserMap] = useState({});
+  const [noteMap, setNoteMap] = useState({});
+
+
+  useEffect(() => {
+    const fetchUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      setCurrentUser(user);
+    };
+    fetchUser();
+  }, []);
+
+ 
+  useEffect(() => {
+    if (!currentUser) return;
+
+    fetchLogs();
+
+    
+    const subscription = supabase
+      .channel('realtime-activity-logs')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'activity_logs', filter: `actor_id=eq.${currentUser.id}` },
+        (payload) => {
+          fetchLogs(); 
+        }
+      )
+      .subscribe();
+
+    return () => supabase.removeChannel(subscription);
+  }, [currentUser]);
+
+
+  const fetchLogs = async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.rpc('rpc_get_activity_logs_for_user', { _user_id: currentUser.id });
+      if (error) throw error;
+      setLogs(data || []);
+
+      
+      await fetchExtraData(data || []);
+    } catch (err) {
+      console.error('Error fetching activity logs:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchExtraData = async (logsData) => {
+    const userIds = [...new Set(logsData.flatMap(log => [log.actor_id, log.payload?.shared_with, log.payload?.removed_user].filter(Boolean)))];
+    const noteIds = [...new Set(logsData.map(log => log.note_id).filter(Boolean))];
+
+    if (userIds.length) {
+      const { data: users } = await supabase
+        .from('user_profiles')
+        .select('id, email, name')
+        .in('id', userIds);
+      setUserMap(users.reduce((acc, u) => ({ ...acc, [u.id]: u }), {}));
+    }
+
+    if (noteIds.length) {
+      const { data: notes } = await supabase
+        .from('notes')
+        .select('id, title')
+        .in('id', noteIds);
+      setNoteMap(notes.reduce((acc, n) => ({ ...acc, [n.id]: n }), {}));
+    }
+  };
+
+  const getActionIcon = (action) => {
+    switch(action) {
+      case 'note_created':
+        return <FileText className="w-4 h-4 text-green-400" />;
+      case 'note_updated':
+        return <FileText className="w-4 h-4 text-blue-400" />;
+      case 'note_shared':
+        return <Share2 className="w-4 h-4 text-indigo-400" />;
+      case 'note_unshared':
+        return <UserMinus className="w-4 h-4 text-red-400" />;
+      default:
+        return <Activity className="w-4 h-4 text-gray-400" />;
+    }
+  };
+
+  const renderMessage = (log) => {
+    const { action, payload, note_id, actor_id } = log;
+    const noteTitle = noteMap[note_id]?.title || 'Unknown Note';
+    const actor = userMap[actor_id]?.name || 'Someone';
+
+    switch(action) {
+      case 'note_created':
+        return `You created note "${payload.title || noteTitle}"`;
+
+      case 'note_updated':
+        return `${actor} updated note "${payload.old_title || noteTitle}"`;
+
+      case 'note_shared':
+        if (payload.shared_with === currentUser.id) {
+          const sharer = userMap[actor_id]?.name || 'Someone';
+          return `${sharer} shared note "${noteTitle}" with you`;
+        }
+        const sharedWithName = userMap[payload.shared_with]?.name || 'Someone';
+        return `You shared note "${noteTitle}" with ${sharedWithName}`;
+
+      case 'note_unshared':
+        if (payload.removed_user === currentUser.id) {
+          return `Your access to note "${noteTitle}" was removed`;
+        }
+        const removedName = userMap[payload.removed_user]?.name || 'Someone';
+        return `You removed ${removedName} from note "${noteTitle}"`;
+
+      default:
+        return action;
+    }
+  };
+
+  const getRelativeTime = (dateString) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffInMs = now - date;
+    const diffInHours = diffInMs / (1000 * 60 * 60);
+    const diffInDays = diffInHours / 24;
+
+    if (diffInHours < 1) return 'just now';
+    else if (diffInHours < 24) {
+      const hours = Math.floor(diffInHours);
+      return `${hours} hour${hours > 1 ? 's' : ''} ago`;
+    } else if (diffInDays < 7) {
+      const days = Math.floor(diffInDays);
+      return `${days} day${days > 1 ? 's' : ''} ago`;
+    } else if (diffInDays < 30) {
+      const weeks = Math.floor(diffInDays / 7);
+      return `${weeks} week${weeks > 1 ? 's' : ''} ago`;
+    } else {
+      return date.toLocaleDateString();
+    }
+  };
+
+  if (loading) {
+    return (
+      <main className="flex-1 overflow-y-auto min-h-screen">
+        <div className="max-w-7xl mx-auto p-8">
+          <div className="flex items-center justify-center h-64">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-400 mx-auto mb-4"></div>
+              <p className="text-gray-400">Loading activity logs...</p>
+            </div>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  return (
+    <main className="flex-1 overflow-y-auto min-h-screen">
+      <div className="max-w-7xl mx-auto p-8">
+        <div className="mb-8">
+          <h2 className="text-3xl font-bold text-white mb-2">Activity Logs</h2>
+          <p className="text-gray-400">
+            {logs.length > 0 
+              ? `${logs.length} recent activit${logs.length === 1 ? 'y' : 'ies'}` 
+              : 'No activity yet'}
+          </p>
+        </div>
+
+        {logs.length > 0 ? (
+          <div className="space-y-3">
+            {logs.map((log) => (
+              <div 
+                key={log.id} 
+                className="bg-[#252837] rounded-xl p-6 border border-gray-700 hover:border-gray-600 transition-colors"
+              >
+                <div className="flex items-start gap-4">
+                  <div className="flex-shrink-0 w-10 h-10 bg-indigo-500/20 rounded-full flex items-center justify-center">
+                    {getActionIcon(log.action)}
+                  </div>
+                  
+                  <div className="flex-1 min-w-0">
+                    <p className="text-white text-sm leading-relaxed">
+                      {renderMessage(log)}
+                    </p>
+                    
+                    <div className="flex items-center gap-2 mt-2 text-xs text-gray-500">
+                      <Clock className="w-3 h-3" />
+                      <span>{getRelativeTime(log.created_at)}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-12">
+            <div className="bg-[#252837] rounded-xl p-8 border border-gray-700 max-w-md mx-auto">
+              <div className="w-16 h-16 bg-indigo-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Activity className="w-8 h-8 text-indigo-400" />
+              </div>
+              <h3 className="text-lg font-semibold text-white mb-2">No activity yet</h3>
+              <p className="text-gray-400 text-sm">
+                Your recent activities will appear here.
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
+    </main>
+  );
+}
