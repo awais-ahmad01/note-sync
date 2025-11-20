@@ -1,14 +1,17 @@
 "use client";
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Lock, Users, BarChart3, FileText, Settings } from 'lucide-react';
+import { Lock, Users, BarChart3, FileText, Settings, LogOut } from 'lucide-react';
 import { useState, useEffect } from 'react';
-import { getCurrentUserProfile } from '../lib/supabaseClient';
+import { getCurrentUserProfile, supabase } from '../lib/supabaseClient';
+import { useRouter } from 'next/navigation';
 
 const Sidebar = () => {
   const pathname = usePathname();
+  const router = useRouter();
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [logoutLoading, setLogoutLoading] = useState(false);
 
   const menuItems = [
     { id: 'all-notes', label: 'All Notes', icon: FileText, link: '/notes' },
@@ -35,6 +38,26 @@ const Sidebar = () => {
       console.error('Error loading user data:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      setLogoutLoading(true);
+      const { error } = await supabase.auth.signOut();
+      
+      if (error) {
+        throw error;
+      }
+      
+      router.push('/sign-in');
+      router.refresh(); 
+      
+    } catch (error) {
+      console.error('Error logging out:', error);
+      alert('Failed to log out. Please try again.');
+    } finally {
+      setLogoutLoading(false);
     }
   };
 
@@ -111,26 +134,55 @@ const Sidebar = () => {
             </div>
           </div>
         ) : user ? (
-          <div className="flex items-center gap-3">
-            {getAvatarDisplay()}
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-gray-200 truncate">
-                {user.name || 'User'}
-              </p>
-              <p className="text-xs text-gray-400 truncate">
-                {user.email}
-              </p>
+          <div className="space-y-3">
+        
+            <div className="flex items-center gap-3">
+              {getAvatarDisplay()}
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-gray-200 truncate">
+                  {user.name || 'User'}
+                </p>
+                <p className="text-xs text-gray-400 truncate">
+                  {user.email}
+                </p>
+              </div>
             </div>
+            
+          
+            <button
+              onClick={handleLogout}
+              disabled={logoutLoading}
+              className="w-full flex items-center gap-3 px-3 py-2 text-sm text-gray-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <LogOut className="w-4 h-4" />
+              <span className="font-medium">
+                {logoutLoading ? 'Logging out...' : 'Logout'}
+              </span>
+              {logoutLoading && (
+                <div className="ml-auto animate-spin rounded-full h-3 w-3 border-b-2 border-red-400"></div>
+              )}
+            </button>
           </div>
         ) : (
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gray-700 rounded-full flex items-center justify-center text-white font-semibold text-sm">
-              U
+          <div className="space-y-3">
+           
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-gray-700 rounded-full flex items-center justify-center text-white font-semibold text-sm">
+                U
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-gray-200 truncate">User</p>
+                <p className="text-xs text-gray-400 truncate">Not logged in</p>
+              </div>
             </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-gray-200 truncate">User</p>
-              <p className="text-xs text-gray-400 truncate">Not logged in</p>
-            </div>
+            
+            {/* Login Button */}
+            <Link href="/auth/login" className="block">
+              <button className="w-full flex items-center gap-3 px-3 py-2 text-sm text-gray-400 hover:text-indigo-400 hover:bg-indigo-500/10 rounded-lg transition-colors">
+                <LogOut className="w-4 h-4" />
+                <span className="font-medium">Login</span>
+              </button>
+            </Link>
           </div>
         )}
       </div>
