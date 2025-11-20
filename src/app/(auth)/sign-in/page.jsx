@@ -29,7 +29,7 @@ const SignIn = ({ onSignUpClick }) => {
       } else {
         console.log("User logged in:", data);
         
-        window.location.href = '/all-notes';
+        window.location.href = '/notes';
       }
     } catch (err) {
       console.error("Unexpected error:", err);
