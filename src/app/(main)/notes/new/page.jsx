@@ -1,5 +1,5 @@
 
-import NoteEditor from "../../../../components/nodeEditor";
+import NoteEditor from '../../../../components/nodeEditor';
 
 const NewNotePage = () => {
   return <NoteEditor />;

@@ -1,5 +1,5 @@
 "use client";
-import { X } from "lucide-react";
+import { X, Edit2, Eye, Check, Save } from "lucide-react";
 import { useState, useEffect } from "react";
 import { supabase } from "../lib/supabaseClient";
 
@@ -9,7 +9,9 @@ const ShareModal = ({ isOpen, onClose, noteTitle, noteId }) => {
   const [loading, setLoading] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
   const [noteOwnerId, setNoteOwnerId] = useState(null);
-
+  const [selectedRole, setSelectedRole] = useState("editor"); 
+  const [editingRole, setEditingRole] = useState(null); 
+  const [editingRoleValue, setEditingRoleValue] = useState("");
   const [suggestions, setSuggestions] = useState([]);
 
   const handleEmailChange = async (e) => {
@@ -75,10 +77,11 @@ const ShareModal = ({ isOpen, onClose, noteTitle, noteId }) => {
       } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { data: shares, error: sharesError } = await supabase.rpc(
-        "rpc_list_shares_for_note",
-        { _note_id: noteId }
-      );
+     
+      const { data: shares, error: sharesError } = await supabase
+        .from("note_shares")
+        .select("id, note_id, user_id, role, created_at")
+        .eq("note_id", noteId);
 
       if (sharesError) throw sharesError;
 
@@ -112,6 +115,7 @@ const ShareModal = ({ isOpen, onClose, noteTitle, noteId }) => {
           color: "#8b5cf6",
           isOwner: true,
           canRemove: false,
+          canEditRole: false,
         });
       }
 
@@ -127,17 +131,20 @@ const ShareModal = ({ isOpen, onClose, noteTitle, noteId }) => {
             id: userProfile.id,
             name: userProfile.name || userProfile.email.split("@")[0],
             email: userProfile.email,
-            role: share.role === "editor" ? "Can edit" : "Can view",
+            role: share.role,
             avatar:
               userProfile.name?.[0]?.toUpperCase() ||
               userProfile.email[0].toUpperCase(),
             color: "#" + Math.floor(Math.random() * 16777215).toString(16),
             isOwner: false,
             canRemove: note.owner_id === user.id,
+            canEditRole: note.owner_id === user.id,
+            shareId: share.id, 
           });
         }
       }
 
+      console.log("Fetched collaborators with share IDs:", collabs);
       setCollaborators(collabs);
     } catch (error) {
       console.error("Error fetching collaborators:", error);
@@ -185,13 +192,14 @@ const ShareModal = ({ isOpen, onClose, noteTitle, noteId }) => {
         {
           _note_id: noteId,
           _user_id: userData.id,
-          _role: "editor",
+          _role: selectedRole,
         }
       );
       if (shareError) throw shareError;
 
       await fetchCollaborators();
       setEmail("");
+      setSelectedRole("editor");
       alert("Note shared successfully!");
     } catch (error) {
       console.error("Error adding collaborator:", error);
@@ -235,6 +243,97 @@ const ShareModal = ({ isOpen, onClose, noteTitle, noteId }) => {
     }
   };
 
+  const handleUpdateRole = async (shareId, newRole) => {
+    console.log("handleUpdateRole called with:", { shareId, newRole });
+
+    if (!shareId || !currentUser) {
+      console.error("Missing shareId or currentUser:", {
+        shareId,
+        currentUser,
+      });
+      alert("Cannot update role: Missing required information");
+      return;
+    }
+
+    try {
+      const { data: note } = await supabase
+        .from("notes")
+        .select("owner_id")
+        .eq("id", noteId)
+        .single();
+
+      if (note.owner_id !== currentUser.id) {
+        throw new Error("Only the note owner can update roles");
+      }
+
+      console.log("Calling rpc_update_note_share with:", {
+        _share_id: shareId,
+        _role: newRole,
+      });
+
+      const { error } = await supabase.rpc("rpc_update_note_share", {
+        _share_id: shareId,
+        _role: newRole,
+      });
+
+      if (error) {
+        console.error("RPC Error:", error);
+        throw error;
+      }
+
+      console.log("Role updated successfully");
+      await fetchCollaborators();
+      setEditingRole(null);
+      setEditingRoleValue("");
+      alert("Role updated successfully!");
+    } catch (error) {
+      console.error("Error updating role:", error);
+      alert("Failed to update role: " + error.message);
+    }
+  };
+
+  const startEditingRole = (collabId, currentRole, shareId) => {
+    console.log("Starting to edit role for:", {
+      collabId,
+      currentRole,
+      shareId,
+    });
+    setEditingRole(collabId);
+    setEditingRoleValue(currentRole);
+  };
+
+  const cancelEditingRole = () => {
+    console.log("Canceling role edit");
+    setEditingRole(null);
+    setEditingRoleValue("");
+  };
+
+  const getRoleDisplay = (role) => {
+    switch (role) {
+      case "owner":
+        return "Owner";
+      case "editor":
+        return "Can edit";
+      case "viewer":
+        return "Can view";
+      default:
+        return role;
+    }
+  };
+
+  const getRoleColor = (role) => {
+    switch (role) {
+      case "owner":
+        return "bg-purple-600 text-white";
+      case "editor":
+        return "bg-blue-600 text-white";
+      case "viewer":
+        return "bg-gray-600 text-gray-300";
+      default:
+        return "bg-gray-600 text-gray-300";
+    }
+  };
+
   const canShare = noteOwnerId && currentUser && noteOwnerId === currentUser.id;
   if (!isOpen) return null;
 
@@ -257,7 +356,7 @@ const ShareModal = ({ isOpen, onClose, noteTitle, noteId }) => {
               <label className="block text-gray-300 text-sm mb-2">
                 Add people by email
               </label>
-              <div className="flex gap-2">
+              <div className="flex gap-2 mb-3">
                 <input
                   type="email"
                   value={email}
@@ -269,6 +368,15 @@ const ShareModal = ({ isOpen, onClose, noteTitle, noteId }) => {
                   className="flex-1 bg-[#1a1d2e] text-gray-200 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 border border-gray-700 placeholder-gray-500"
                   disabled={loading}
                 />
+
+                <select
+                  value={selectedRole}
+                  onChange={(e) => setSelectedRole(e.target.value)}
+                  className="bg-[#1a1d2e] text-gray-200 rounded-lg px-3 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 border border-gray-700"
+                >
+                  <option value="editor">Can edit</option>
+                  <option value="viewer">Can view</option>
+                </select>
 
                 <button
                   onClick={handleAddCollaborator}
@@ -341,23 +449,71 @@ const ShareModal = ({ isOpen, onClose, noteTitle, noteId }) => {
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span
-                        className={`px-3 py-1 rounded-lg text-sm font-medium ${
-                          collab.isOwner
-                            ? "bg-indigo-600 text-white"
-                            : "bg-gray-600 text-gray-300"
-                        }`}
-                      >
-                        {collab.role}
-                      </span>
-                      {!collab.isOwner && collab.canRemove && (
-                        <button
-                          onClick={() => handleRemoveCollaborator(collab.id)}
-                          className="text-red-400 hover:text-red-300 ml-2"
-                          title="Remove collaborator"
-                        >
-                          <X className="w-4 h-4" />
-                        </button>
+                      {editingRole === collab.id ? (
+                        <div className="flex items-center gap-2">
+                          <select
+                            value={editingRoleValue}
+                            onChange={(e) =>
+                              setEditingRoleValue(e.target.value)
+                            }
+                            className="bg-[#1a1d2e] text-gray-200 rounded px-2 py-1 border border-gray-600 text-sm"
+                          >
+                            <option value="editor">Can edit</option>
+                            <option value="viewer">Can view</option>
+                          </select>
+                          <button
+                            onClick={() =>
+                              handleUpdateRole(collab.shareId, editingRoleValue)
+                            }
+                            className="text-green-400 hover:text-green-300 p-1"
+                            title="Save role"
+                          >
+                            <Check className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={cancelEditingRole}
+                            className="text-gray-400 hover:text-gray-300 p-1"
+                            title="Cancel editing"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ) : (
+                        <>
+                          <span
+                            className={`px-3 py-1 rounded-lg text-sm font-medium ${getRoleColor(
+                              collab.role
+                            )}`}
+                          >
+                            {getRoleDisplay(collab.role)}
+                          </span>
+                          {collab.canEditRole && collab.role !== "owner" && (
+                            <button
+                              onClick={() =>
+                                startEditingRole(
+                                  collab.id,
+                                  collab.role,
+                                  collab.shareId
+                                )
+                              }
+                              className="text-blue-400 hover:text-blue-300 p-1"
+                              title="Edit role"
+                            >
+                              <Edit2 className="w-4 h-4" />
+                            </button>
+                          )}
+                          {!collab.isOwner && collab.canRemove && (
+                            <button
+                              onClick={() =>
+                                handleRemoveCollaborator(collab.id)
+                              }
+                              className="text-red-400 hover:text-red-300 p-1"
+                              title="Remove collaborator"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          )}
+                        </>
                       )}
                     </div>
                   </div>

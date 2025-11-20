@@ -1,11 +1,12 @@
-
 'use client';
 import { useState, useEffect, useRef } from 'react';
-import { supabase } from '../../../lib/supabaseClient';
+import { supabase } from '../lib/supabaseClient';
 import { Bell } from 'lucide-react';
 import Link from 'next/link';
+import { getRelativeTime } from '../lib/getRealtiveTime';
+import NotesLoading from './skeletons/notesLoading';
 
-const SharedNotes = () => {
+const SharedWithMeNotesContent = () => {
   const [sharedNotes, setSharedNotes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [notifications, setNotifications] = useState([]);
@@ -46,7 +47,6 @@ const SharedNotes = () => {
       
       console.log('Fetching shared notes for user:', userId);
       
-    
       const { data: sharedNoteIds, error: sharesError } = await supabase
         .from('note_shares')
         .select('id, note_id, role, created_at')
@@ -63,10 +63,8 @@ const SharedNotes = () => {
         return;
       }
 
-    
       const noteIds = sharedNoteIds.map(share => share.note_id);
       
-     
       const { data: notesWithOwners, error: notesError } = await supabase
         .from('notes')
         .select(`
@@ -81,7 +79,6 @@ const SharedNotes = () => {
         throw notesError;
       }
 
-      
       const processedNotes = (notesWithOwners || []).map(note => {
         const shareInfo = sharedNoteIds.find(share => share.note_id === note.id);
         return {
@@ -111,7 +108,6 @@ const SharedNotes = () => {
       supabase.removeChannel(channelRef.current);
     }
 
-   
     const channel = supabase
       .channel(`shared_notes_${userId}`)
       .on(
@@ -153,7 +149,6 @@ const SharedNotes = () => {
           await handleShareUpdate(payload.new, userId);
         }
       )
-     
       .on(
         'postgres_changes',
         {
@@ -175,7 +170,6 @@ const SharedNotes = () => {
           console.error('❌ Channel error:', err);
         } else if (status === 'TIMED_OUT') {
           console.error('⏱️ Subscription timed out');
-        
           setTimeout(() => setupRealtimeSubscription(userId), 5000);
         }
       });
@@ -187,7 +181,7 @@ const SharedNotes = () => {
     try {
       console.log('Processing new share:', newShare);
       
-       const existingNote = sharedNotes.find(note => note.id === newShare.note_id);
+      const existingNote = sharedNotes.find(note => note.id === newShare.note_id);
       if (existingNote) {
         console.log('Note already exists, skipping...');
         return;
@@ -261,7 +255,6 @@ const SharedNotes = () => {
     try {
       console.log('Updating share permissions:', updatedShare);
       
-    
       const { data: noteData, error } = await supabase
         .from('notes')
         .select(`
@@ -338,24 +331,14 @@ const SharedNotes = () => {
     setNotifications(prev => prev.filter(n => n.id !== notificationId));
   };
 
+
   if (loading) {
-    return (
-      <main className="flex-1 overflow-y-auto min-h-screen">
-        <div className="max-w-7xl mx-auto p-8">
-          <div className="flex items-center justify-center h-64">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-400 mx-auto mb-4"></div>
-              <p className="text-gray-400">Loading shared notes...</p>
-            </div>
-          </div>
-        </div>
-      </main>
-    );
+    return <NotesLoading count={6} />;
   }
 
   return (
-    <main className="flex-1 overflow-y-auto min-h-screen">
-  
+    <>
+     
       <div className="fixed top-4 right-4 z-50 space-y-2 max-w-sm">
         {notifications.map((notification) => (
           <div
@@ -381,66 +364,83 @@ const SharedNotes = () => {
         ))}
       </div>
 
-      <div className="max-w-7xl mx-auto p-8">
-        <div className="mb-8">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-3xl font-bold text-white mb-2">Shared With You</h2>
-              <p className="text-gray-400">
-                {sharedNotes.length > 0 
-                  ? `You have ${sharedNotes.length} note${sharedNotes.length > 1 ? 's' : ''} shared with you` 
-                  : 'No notes have been shared with you yet'
-                }
-              </p>
-            </div>
-            
-            <div className="flex items-center gap-4">
-              {/* {channelRef.current && (
-                <div className="flex items-center gap-2 text-xs text-green-400">
-                  <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                  <span>Live</span>
-                </div>
-              )} */}
-              {notifications.length > 0 && (
-                <div className="relative">
-                  <Bell className="w-6 h-6 text-emerald-400" />
-                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-                    {notifications.length}
-                  </span>
-                </div>
-              )}
-            </div>
+      <div className="mb-8">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-3xl font-bold text-white mb-2">Shared With You</h2>
+            <p className="text-gray-400">
+              {sharedNotes.length > 0 
+                ? `You have ${sharedNotes.length} note${sharedNotes.length > 1 ? 's' : ''} shared with you` 
+                : 'No notes have been shared with you yet'
+              }
+            </p>
+          </div>
+          
+          <div className="flex items-center gap-4">
+            {notifications.length > 0 && (
+              <div className="relative">
+                <Bell className="w-6 h-6 text-emerald-400" />
+                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                  {notifications.length}
+                </span>
+              </div>
+            )}
           </div>
         </div>
-        
-        {sharedNotes.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {sharedNotes.map((note) => (
-              <SharedNoteCard key={`${note.id}-${note.shareId}`} note={note} />
-            ))}
-          </div>
-        ) : (
-          <div className="text-center py-12">
-            <div className="bg-[#252837] rounded-xl p-8 border border-gray-700 max-w-md mx-auto">
-              <div className="w-16 h-16 bg-indigo-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Bell className="w-8 h-8 text-indigo-400" />
-              </div>
-              <h3 className="text-lg font-semibold text-white mb-2">No shared notes yet</h3>
-              <p className="text-gray-400 text-sm">
-                When someone shares a note with you, it will appear here automatically.
-                {channelRef.current && (
-                  <span className="block mt-2 text-green-400">✓ Real-time updates active</span>
-                )}
-              </p>
-            </div>
-          </div>
-        )}
       </div>
-    </main>
+      
+      {sharedNotes.length > 0 ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {sharedNotes.map((note) => (
+            <SharedNoteCard key={`${note.id}-${note.shareId}`} note={note} />
+          ))}
+        </div>
+      ) : (
+        <div className="text-center py-12">
+          <div className="bg-[#252837] rounded-xl p-8 border border-gray-700 max-w-md mx-auto">
+            <div className="w-16 h-16 bg-indigo-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Bell className="w-8 h-8 text-indigo-400" />
+            </div>
+            <h3 className="text-lg font-semibold text-white mb-2">No shared notes yet</h3>
+            <p className="text-gray-400 text-sm">
+              When someone shares a note with you, it will appear here automatically.
+              {channelRef.current && (
+                <span className="block mt-2 text-green-400">✓ Real-time updates active</span>
+              )}
+            </p>
+          </div>
+        </div>
+      )}
+    </>
   );
 };
 
 const SharedNoteCard = ({ note }) => {
+  const getRoleBadge = (role) => {
+    switch (role) {
+      case 'editor':
+        return {
+          bg: 'bg-blue-500/20',
+          text: 'text-blue-400',
+          label: 'Can edit'
+        };
+      case 'viewer':
+        return {
+          bg: 'bg-gray-500/20', 
+          text: 'text-gray-400',
+          label: 'Can view'
+        };
+      default:
+        return {
+          bg: 'bg-gray-500/20',
+          text: 'text-gray-400', 
+          label: role
+        };
+    }
+  };
+
+  const roleBadge = getRoleBadge(note.role);
+
   return (
     <Link href={`/notes/${note.id}`}>
       <div className="bg-[#252837] rounded-xl p-6 border border-gray-700 hover:border-gray-600 transition-colors cursor-pointer group">
@@ -449,12 +449,8 @@ const SharedNoteCard = ({ note }) => {
             <span className="bg-emerald-500/20 text-emerald-400 text-xs px-3 py-1 rounded-full">
               Shared
             </span>
-            <span className={`text-xs px-3 py-1 rounded-full ${
-              note.role === 'editor' 
-                ? 'bg-blue-500/20 text-blue-400' 
-                : 'bg-gray-500/20 text-gray-400'
-            }`}>
-              {note.role === 'editor' ? 'Can edit' : 'Can view'}
+            <span className={`text-xs px-3 py-1 rounded-full ${roleBadge.bg} ${roleBadge.text}`}>
+              {roleBadge.label}
             </span>
           </div>
         </div>
@@ -478,30 +474,6 @@ const SharedNoteCard = ({ note }) => {
   );
 };
 
-function getRelativeTime(dateString) {
-  if (!dateString) return 'unknown time';
-  
-  const date = new Date(dateString);
-  if (isNaN(date.getTime())) return 'unknown time';
-  
-  const now = new Date();
-  const diffInMs = now - date;
-  const diffInHours = diffInMs / (1000 * 60 * 60);
-  const diffInDays = diffInHours / 24;
 
-  if (diffInHours < 1) return 'just now';
-  else if (diffInHours < 24) {
-    const hours = Math.floor(diffInHours);
-    return `${hours} hour${hours > 1 ? 's' : ''} ago`;
-  } else if (diffInDays < 7) {
-    const days = Math.floor(diffInDays);
-    return `${days} day${days > 1 ? 's' : ''} ago`;
-  } else if (diffInDays < 30) {
-    const weeks = Math.floor(diffInDays / 7);
-    return `${weeks} week${weeks > 1 ? 's' : ''} ago`;
-  } else {
-    return date.toLocaleDateString();
-  }
-}
 
-export default SharedNotes;
+export default SharedWithMeNotesContent;

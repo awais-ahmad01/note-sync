@@ -1,27 +1,76 @@
-
 "use client";
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Lock, Users, BarChart3, FileText } from 'lucide-react';
+import { Lock, Users, BarChart3, FileText, Settings } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { getCurrentUserProfile } from '../lib/supabaseClient';
 
 const Sidebar = () => {
   const pathname = usePathname();
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   const menuItems = [
     { id: 'all-notes', label: 'All Notes', icon: FileText, link: '/notes' },
-      { id: 'private', label: 'Private Notes', icon: Users, link: '/private-notes' },
-     { id: 'shared-by-me', label: 'Shared By Me', icon: Users, link: '/shared-by-me' },
-    { id: 'shared-with-me', label: 'Shared with Me', icon: Users, link: '/shared-notes' },
+    { id: 'private', label: 'Private Notes', icon: Lock, link: '/private-notes' },
+    { id: 'shared-by-me', label: 'Shared By Me', icon: Users, link: '/shared-by-me' },
+    { id: 'shared-with-me', label: 'Shared with Me', icon: Users, link: '/shared-with-me' },
     { id: 'activity', label: 'Activity Log', icon: BarChart3, link: '/activity-logs' },
+    { id: 'settings', label: 'Settings', icon: Settings, link: '/settings' },
   ];
 
-  
+  useEffect(() => {
+    loadUserData();
+  }, []);
+
+  const loadUserData = async () => {
+    try {
+      setLoading(true);
+      const { data: profile, error } = await getCurrentUserProfile();
+      
+      if (error) throw error;
+      
+      setUser(profile);
+    } catch (error) {
+      console.error('Error loading user data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const isActive = (link) => {
     if (link === '/notes') {
-     
       return pathname === '/notes' || pathname.startsWith('/notes');
     }
     return pathname === link || pathname.startsWith(link);
+  };
+
+  const getInitials = (name) => {
+    if (!name) return 'U';
+    return name
+      .split(' ')
+      .map(word => word[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
+  };
+
+  const getAvatarDisplay = () => {
+    if (user?.avatar_url) {
+      return (
+        <img
+          src={user.avatar_url}
+          alt="Profile"
+          className="w-10 h-10 rounded-full object-cover border-2 border-indigo-500"
+        />
+      );
+    }
+    
+    return (
+      <div className="w-10 h-10 bg-indigo-600 rounded-full flex items-center justify-center text-white font-semibold text-sm">
+        {getInitials(user?.name || user?.email)}
+      </div>
+    );
   };
 
   return (
@@ -38,7 +87,7 @@ const Sidebar = () => {
           return (
             <Link href={item.link} key={item.id}>
               <button
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg mb-2 transition-colors ${
+                className={`w-full flex items-center gap-3 px-4 py-3 cursor-pointer rounded-lg mb-2 transition-colors ${
                   active
                     ? 'bg-indigo-600 text-white'
                     : 'text-gray-400 hover:bg-[#252837] hover:text-gray-300'
@@ -53,15 +102,37 @@ const Sidebar = () => {
       </nav>
       
       <div className="p-4 border-t border-gray-800">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-indigo-600 rounded-full flex items-center justify-center text-white font-semibold">
-            A
+        {loading ? (
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-gray-700 rounded-full animate-pulse"></div>
+            <div className="flex-1 min-w-0 space-y-2">
+              <div className="h-4 bg-gray-700 rounded animate-pulse"></div>
+              <div className="h-3 bg-gray-700 rounded animate-pulse"></div>
+            </div>
           </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-gray-200 truncate">Awais Ahmad</p>
-            <p className="text-xs text-gray-400 truncate">awais@example.com</p>
+        ) : user ? (
+          <div className="flex items-center gap-3">
+            {getAvatarDisplay()}
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-gray-200 truncate">
+                {user.name || 'User'}
+              </p>
+              <p className="text-xs text-gray-400 truncate">
+                {user.email}
+              </p>
+            </div>
           </div>
-        </div>
+        ) : (
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-gray-700 rounded-full flex items-center justify-center text-white font-semibold text-sm">
+              U
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-gray-200 truncate">User</p>
+              <p className="text-xs text-gray-400 truncate">Not logged in</p>
+            </div>
+          </div>
+        )}
       </div>
     </aside>
   );

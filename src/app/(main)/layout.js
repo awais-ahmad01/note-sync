@@ -34,15 +34,15 @@ import Header from "../../components/header";
 const NoteSyncLayout = ({ children }) => {
   return (
     <div className="flex h-screen bg-[#0f0f23] overflow-hidden">
-      {/* Fixed Sidebar */}
+     
       <Sidebar />
 
-      {/* Main Content Area */}
+   
       <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Fixed Header */}
+       
         <Header />
         
-        {/* Scrollable Content */}
+       
         <main className="flex-1 overflow-y-auto bg-[#0f0f23]">
           {children}
         </main>
