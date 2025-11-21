@@ -1,4 +1,3 @@
-
 "use client";
 import Link from "next/link";
 import { Trash2, Users, Edit2, Eye, Lock } from "lucide-react";
@@ -8,23 +7,23 @@ import { useState, useEffect } from "react";
 import ShareModal from "../components/shareModal";
 import { getRelativeTime } from '../lib/getRealtiveTime';
 
-
-const NoteCard = ({ note, showActions = false }) => {
+const NoteCard = ({ note, showActions = false, initialUserRole = null }) => {
   const router = useRouter();
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
-  const [userRole, setUserRole] = useState(null);
+  const [userRole, setUserRole] = useState(initialUserRole); // Use initial value from props
   const [isDeleting, setIsDeleting] = useState(false);
+  const [userRoleDetermined, setUserRoleDetermined] = useState(!!initialUserRole); // Track if role is determined
 
   useEffect(() => {
     getUser();
   }, []);
 
   useEffect(() => {
-    if (note && currentUser) {
+    if (note && currentUser && !userRoleDetermined) {
       determineUserRole();
     }
-  }, [note, currentUser]);
+  }, [note, currentUser, userRoleDetermined]);
 
   const getUser = async () => {
     const {
@@ -36,26 +35,27 @@ const NoteCard = ({ note, showActions = false }) => {
   const determineUserRole = () => {
     if (!note || !currentUser) return;
 
+    
     if (note.owner_id === currentUser.id) {
       setUserRole("owner");
-      return;
     }
-
     
-    if (note.role) {
+    else if (note.role) {
       setUserRole(note.role);
-      return;
     }
 
-
-    setUserRole(null);
+    else {
+      setUserRole(null);
+    }
+    
+    setUserRoleDetermined(true);
   };
 
   const handleDelete = async (e) => {
     e.preventDefault();
     e.stopPropagation();
 
-   
+  
     if (userRole !== "owner") {
       alert("Only the note owner can delete this note.");
       return;
@@ -159,9 +159,32 @@ const NoteCard = ({ note, showActions = false }) => {
   const roleBadge = getRoleBadge();
   const accessTypeBadge = getAccessTypeBadge();
 
-
-  if (!canView() && !note?.isShared) {
+ 
+  if (userRoleDetermined && !canView() && !note?.isShared) {
     return null;
+  }
+
+ 
+  if (!userRoleDetermined) {
+    return (
+      <div className="bg-[#252837] rounded-xl p-6 border border-gray-700 animate-pulse">
+        <div className="flex items-start justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <div className="w-16 h-6 bg-gray-600 rounded-full"></div>
+            <div className="w-20 h-6 bg-gray-600 rounded-full"></div>
+          </div>
+        </div>
+        <div className="h-6 bg-gray-600 rounded mb-2 w-3/4"></div>
+        <div className="space-y-2 mb-4">
+          <div className="h-4 bg-gray-600 rounded w-full"></div>
+          <div className="h-4 bg-gray-600 rounded w-5/6"></div>
+        </div>
+        <div className="flex items-center justify-between">
+          <div className="h-3 bg-gray-600 rounded w-20"></div>
+          <div className="h-3 bg-gray-600 rounded w-16"></div>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -178,13 +201,14 @@ const NoteCard = ({ note, showActions = false }) => {
                 : "border-gray-800 opacity-60 cursor-not-allowed"
             } ${isDeleting ? "opacity-50" : ""}`}
           >
-           
+            
             {isDeleting && (
               <div className="absolute inset-0 bg-black bg-opacity-50 rounded-xl flex items-center justify-center">
                 <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white"></div>
               </div>
             )}
 
+          
             {showActions && userRole === "owner" && !isDeleting && (
               <div className="absolute -top-2 -right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                 <button
@@ -205,7 +229,7 @@ const NoteCard = ({ note, showActions = false }) => {
               </div>
             )}
 
-          
+            
             {showActions && userRole && userRole !== "owner" && !isDeleting && (
               <div className="absolute -top-2 -right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                 {userRole === "editor" && (
@@ -227,9 +251,10 @@ const NoteCard = ({ note, showActions = false }) => {
               </div>
             )}
 
+       
             <div className="flex items-start justify-between mb-3">
               <div className="flex items-center gap-2 flex-wrap">
-              
+           
                 <span
                   className={`text-xs px-3 py-1 rounded-full ${accessTypeBadge.bg} ${accessTypeBadge.text}`}
                 >
@@ -254,7 +279,7 @@ const NoteCard = ({ note, showActions = false }) => {
               </div>
             </div>
 
-          
+           
             <h3
               className={`text-lg font-semibold mb-2 line-clamp-1 ${
                 canView()
@@ -277,7 +302,7 @@ const NoteCard = ({ note, showActions = false }) => {
                 : "You do not have permission to view this note"}
             </p>
 
-         
+           
             <div className="flex items-center justify-between text-xs">
               <span className={canView() ? "text-gray-500" : "text-gray-600"}>
                 Updated {getRelativeTime(note?.updated_at)}
@@ -292,6 +317,7 @@ const NoteCard = ({ note, showActions = false }) => {
         </Link>
       </div>
 
+    
       {userRole === "owner" && (
         <ShareModal
           isOpen={isShareModalOpen}
@@ -303,7 +329,5 @@ const NoteCard = ({ note, showActions = false }) => {
     </>
   );
 };
-
-
 
 export default NoteCard;

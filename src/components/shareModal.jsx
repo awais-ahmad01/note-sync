@@ -13,6 +13,26 @@ const ShareModal = ({ isOpen, onClose, noteTitle, noteId }) => {
   const [editingRole, setEditingRole] = useState(null); 
   const [editingRoleValue, setEditingRoleValue] = useState("");
   const [suggestions, setSuggestions] = useState([]);
+  const [dataLoading, setDataLoading] = useState(false); // New loading state for data fetching
+
+  // Skeleton Loading Component
+  const CollaboratorSkeleton = () => (
+    <div className="bg-[#1a1d2e] rounded-lg p-4 mb-3 border border-gray-700 animate-pulse">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="w-12 h-12 bg-gray-600 rounded-full"></div>
+          <div className="space-y-2">
+            <div className="h-4 bg-gray-600 rounded w-24"></div>
+            <div className="h-3 bg-gray-600 rounded w-32"></div>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="h-6 bg-gray-600 rounded w-16"></div>
+          <div className="w-6 h-6 bg-gray-600 rounded"></div>
+        </div>
+      </div>
+    </div>
+  );
 
   const handleEmailChange = async (e) => {
     const value = e.target.value;
@@ -71,13 +91,14 @@ const ShareModal = ({ isOpen, onClose, noteTitle, noteId }) => {
 
   const fetchCollaborators = async () => {
     if (!noteId) return;
+    
+    setDataLoading(true); // Start loading
     try {
       const {
         data: { user },
       } = await supabase.auth.getUser();
       if (!user) return;
 
-     
       const { data: shares, error: sharesError } = await supabase
         .from("note_shares")
         .select("id, note_id, user_id, role, created_at")
@@ -148,6 +169,8 @@ const ShareModal = ({ isOpen, onClose, noteTitle, noteId }) => {
       setCollaborators(collabs);
     } catch (error) {
       console.error("Error fetching collaborators:", error);
+    } finally {
+      setDataLoading(false); // End loading
     }
   };
 
@@ -211,6 +234,8 @@ const ShareModal = ({ isOpen, onClose, noteTitle, noteId }) => {
 
   const handleRemoveCollaborator = async (userId) => {
     if (!noteId || !currentUser) return;
+    
+    setDataLoading(true); // Start loading for removal
     try {
       const { data: note } = await supabase
         .from("notes")
@@ -240,6 +265,8 @@ const ShareModal = ({ isOpen, onClose, noteTitle, noteId }) => {
     } catch (error) {
       console.error("Error removing collaborator:", error);
       alert(error.message);
+    } finally {
+      setDataLoading(false); // End loading
     }
   };
 
@@ -255,6 +282,7 @@ const ShareModal = ({ isOpen, onClose, noteTitle, noteId }) => {
       return;
     }
 
+    setDataLoading(true); // Start loading for role update
     try {
       const { data: note } = await supabase
         .from("notes")
@@ -289,6 +317,8 @@ const ShareModal = ({ isOpen, onClose, noteTitle, noteId }) => {
     } catch (error) {
       console.error("Error updating role:", error);
       alert("Failed to update role: " + error.message);
+    } finally {
+      setDataLoading(false); // End loading
     }
   };
 
@@ -366,13 +396,14 @@ const ShareModal = ({ isOpen, onClose, noteTitle, noteId }) => {
                   }
                   placeholder="Enter email address"
                   className="flex-1 bg-[#1a1d2e] text-gray-200 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 border border-gray-700 placeholder-gray-500"
-                  disabled={loading}
+                  disabled={loading || dataLoading}
                 />
 
                 <select
                   value={selectedRole}
                   onChange={(e) => setSelectedRole(e.target.value)}
                   className="bg-[#1a1d2e] text-gray-200 rounded-lg px-3 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 border border-gray-700"
+                  disabled={loading || dataLoading}
                 >
                   <option value="editor">Can edit</option>
                   <option value="viewer">Can view</option>
@@ -380,10 +411,17 @@ const ShareModal = ({ isOpen, onClose, noteTitle, noteId }) => {
 
                 <button
                   onClick={handleAddCollaborator}
-                  disabled={loading || !email.trim()}
-                  className="bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-600 text-white px-6 py-3 rounded-lg transition-colors"
+                  disabled={loading || dataLoading || !email.trim()}
+                  className="bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-600 text-white px-6 py-3 rounded-lg transition-colors disabled:cursor-not-allowed"
                 >
-                  {loading ? "Adding..." : "Add"}
+                  {loading ? (
+                    <div className="flex items-center gap-2">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                      Adding...
+                    </div>
+                  ) : (
+                    'Add'
+                  )}
                 </button>
               </div>
 
@@ -422,10 +460,17 @@ const ShareModal = ({ isOpen, onClose, noteTitle, noteId }) => {
 
           <div>
             <h3 className="text-gray-400 text-sm uppercase font-semibold mb-4 tracking-wider">
-              People with Access ({collaborators.length})
+              People with Access ({dataLoading ? "..." : collaborators.length})
             </h3>
 
-            {collaborators.length === 0 ? (
+            {dataLoading ? (
+              // Show skeleton loaders when data is loading
+              <div>
+                {[1, 2, 3].map((item) => (
+                  <CollaboratorSkeleton key={item} />
+                ))}
+              </div>
+            ) : collaborators.length === 0 ? (
               <div className="text-center py-8 text-gray-500">
                 No collaborators yet
               </div>
@@ -457,6 +502,7 @@ const ShareModal = ({ isOpen, onClose, noteTitle, noteId }) => {
                               setEditingRoleValue(e.target.value)
                             }
                             className="bg-[#1a1d2e] text-gray-200 rounded px-2 py-1 border border-gray-600 text-sm"
+                            disabled={dataLoading}
                           >
                             <option value="editor">Can edit</option>
                             <option value="viewer">Can view</option>
@@ -467,13 +513,19 @@ const ShareModal = ({ isOpen, onClose, noteTitle, noteId }) => {
                             }
                             className="text-green-400 hover:text-green-300 p-1"
                             title="Save role"
+                            disabled={dataLoading}
                           >
-                            <Check className="w-4 h-4" />
+                            {dataLoading ? (
+                              <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-green-400"></div>
+                            ) : (
+                              <Check className="w-4 h-4" />
+                            )}
                           </button>
                           <button
                             onClick={cancelEditingRole}
                             className="text-gray-400 hover:text-gray-300 p-1"
                             title="Cancel editing"
+                            disabled={dataLoading}
                           >
                             <X className="w-4 h-4" />
                           </button>
@@ -498,6 +550,7 @@ const ShareModal = ({ isOpen, onClose, noteTitle, noteId }) => {
                               }
                               className="text-blue-400 hover:text-blue-300 p-1"
                               title="Edit role"
+                              disabled={dataLoading}
                             >
                               <Edit2 className="w-4 h-4" />
                             </button>
@@ -509,8 +562,13 @@ const ShareModal = ({ isOpen, onClose, noteTitle, noteId }) => {
                               }
                               className="text-red-400 hover:text-red-300 p-1"
                               title="Remove collaborator"
+                              disabled={dataLoading}
                             >
-                              <X className="w-4 h-4" />
+                              {dataLoading ? (
+                                <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-red-400"></div>
+                              ) : (
+                                <X className="w-4 h-4" />
+                              )}
                             </button>
                           )}
                         </>
@@ -527,6 +585,7 @@ const ShareModal = ({ isOpen, onClose, noteTitle, noteId }) => {
           <button
             onClick={onClose}
             className="bg-[#1a1d2e] hover:bg-[#252837] text-gray-300 px-6 py-2.5 rounded-lg transition-colors border border-gray-700"
+            disabled={dataLoading}
           >
             Close
           </button>

@@ -1,4 +1,3 @@
-
 import { fetchNotesData } from './notesData';
 import NoteCard from './noteCard';
 
@@ -36,6 +35,8 @@ const AllNotes = async () => {
             <NoteCard 
               key={note.id} 
               note={note} 
+            
+              initialUserRole={note.userRole}
               showActions={note.userRole === 'owner'}
             />
           ))}
