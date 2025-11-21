@@ -1260,16 +1260,14 @@
 
 
 
-'use client';
 
+'use client';
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { useRouter } from 'next/navigation';
 import { Save, Eye, Edit3, Lock, ArrowLeft, Paperclip, X, Download, Trash2 } from 'lucide-react';
 
 const NoteEditor = ({ noteId }) => {
-  console.log("NoteEditor mounted with noteId:", noteId);
-  
   const [note, setNote] = useState(null);
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
@@ -1284,9 +1282,6 @@ const NoteEditor = ({ noteId }) => {
 
   const isNewNote = !noteId;
 
-  console.log("Current User:", currentUser);
-  console.log("Is New Note:", isNewNote);
-
   useEffect(() => {
     if (isNewNote) {
       setTitle('Untitled');
@@ -1298,12 +1293,10 @@ const NoteEditor = ({ noteId }) => {
   }, []);
 
   useEffect(() => {
-    console.log("Note ID or Current User changed:", noteId, currentUser);
     if (isNewNote) {
       setUserRole('owner');
       setLoading(false);
     } else if (noteId && currentUser) {
-      console.log("Fetching note and permissions for note ID:", noteId);
       fetchNoteAndPermissions();
       fetchAttachments();
     }
@@ -1312,13 +1305,11 @@ const NoteEditor = ({ noteId }) => {
   const getUser = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     setCurrentUser(user);
-    console.log("User set:", user?.id);
   };
 
   const fetchNoteAndPermissions = async () => {
     try {
       setLoading(true);
-      console.log("Fetching note:", noteId);
       
       const { data: noteData, error: noteError } = await supabase
         .from('notes')
@@ -1327,7 +1318,6 @@ const NoteEditor = ({ noteId }) => {
         .single();
 
       if (noteError) throw noteError;
-
       if (!noteData) {
         router.push('/notes');
         return;
@@ -1338,10 +1328,9 @@ const NoteEditor = ({ noteId }) => {
       setBody(noteData.body || '');
 
       const { data: { user } } = await supabase.auth.getUser();
-
+      
       if (noteData.owner_id === user.id) {
         setUserRole('owner');
-        console.log("User is owner");
       } else {
         const { data: share, error: shareError } = await supabase
           .from('note_shares')
@@ -1356,20 +1345,19 @@ const NoteEditor = ({ noteId }) => {
         }
 
         setUserRole(share.role);
-        console.log("User role set to:", share.role);
       }
+
     } catch (error) {
       console.error('Error fetching note:', error);
       router.push('/notes');
     } finally {
-      console.log("Finished fetching note and permissions");
       setLoading(false);
     }
   };
 
   const fetchAttachments = async () => {
     if (!noteId) return;
-
+    
     try {
       const { data: attachmentsData, error } = await supabase
         .from('note_attachments')
@@ -1426,14 +1414,11 @@ const NoteEditor = ({ noteId }) => {
         const fileName = `${Math.random().toString(36).substring(2)}.${fileExt}`;
         const filePath = `${currentUser.id}/${targetNoteId}/${fileName}`;
 
-        console.log("Uploading file:", file.name, "to path:", filePath);
-
         const { error: uploadError } = await supabase.storage
           .from('note-attachments')
           .upload(filePath, file);
 
         if (uploadError) {
-          console.error("Storage upload error:", uploadError);
           throw uploadError;
         }
 
@@ -1449,19 +1434,17 @@ const NoteEditor = ({ noteId }) => {
           });
 
         if (dbError) {
-          console.error("DB insert error:", dbError);
           throw dbError;
         }
-
-        console.log("File uploaded successfully:", file.name);
       }
 
       if (targetNoteId === noteId) {
         await fetchAttachments();
       }
+      
     } catch (error) {
       console.error('Error uploading file:', error);
-      throw error;
+      throw error; 
     } finally {
       setUploading(false);
     }
@@ -1469,13 +1452,10 @@ const NoteEditor = ({ noteId }) => {
 
   const uploadPendingFiles = async (newNoteId) => {
     if (pendingFiles.length === 0) return;
-
-    console.log("Uploading pending files to new note:", newNoteId);
-
+    
     try {
       await uploadFiles(pendingFiles, newNoteId);
       setPendingFiles([]);
-      console.log("All pending files uploaded successfully");
     } catch (error) {
       console.error('Error uploading pending files:', error);
       throw error;
@@ -1498,6 +1478,7 @@ const NoteEditor = ({ noteId }) => {
 
       await fetchAttachments();
       alert('Attachment deleted successfully!');
+      
     } catch (error) {
       console.error('Error deleting attachment:', error);
       alert('Failed to delete attachment: ' + error.message);
@@ -1521,11 +1502,9 @@ const NoteEditor = ({ noteId }) => {
 
     try {
       setSaving(true);
+      
       const { data: { user } } = await supabase.auth.getUser();
-
       if (!user) throw new Error("User not authenticated");
-
-      console.log("Saving note for user ID:", user.id);
 
       if (isNewNote) {
         const { data, error } = await supabase.rpc("insert_note_rpc", {
@@ -1534,9 +1513,7 @@ const NoteEditor = ({ noteId }) => {
         });
 
         if (error) throw error;
-
-        console.log("Note created successfully:", data);
-
+        
         let newNoteId;
         if (data && data.length > 0) {
           newNoteId = data[0].id;
@@ -1550,21 +1527,18 @@ const NoteEditor = ({ noteId }) => {
             .order('created_at', { ascending: false })
             .limit(1)
             .single();
-
+            
           if (fetchError) throw new Error("Note created but could not retrieve note ID");
-
           newNoteId = latestNote.id;
         }
-
-        console.log("New note ID:", newNoteId);
-
+        
         if (pendingFiles.length > 0) {
-          console.log("Uploading", pendingFiles.length, "pending files to new note");
           await uploadPendingFiles(newNoteId);
         }
-
+        
         alert("Note created successfully!");
         router.push('/notes');
+        
       } else {
         const { error } = await supabase
           .from('notes')
@@ -1580,6 +1554,7 @@ const NoteEditor = ({ noteId }) => {
         await fetchNoteAndPermissions();
         alert("Note updated successfully!");
       }
+      
     } catch (error) {
       console.error('Error saving note:', error);
       alert('Failed to save note. Please try again.');
@@ -1612,10 +1587,10 @@ const NoteEditor = ({ noteId }) => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-screen bg-[#1a1b23]">
+      <div className="flex items-center justify-center h-64">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-orange-400 mx-auto mb-4"></div>
-          <p className="text-gray-400">Loading note...</p>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#B22222] mx-auto mb-4"></div>
+          <p className="text-[#666666]">Loading note...</p>
         </div>
       </div>
     );
@@ -1623,104 +1598,107 @@ const NoteEditor = ({ noteId }) => {
 
   if (!isNewNote && !canView()) {
     return (
-      <div className="flex items-center justify-center h-screen bg-[#1a1b23]">
-        <div className="text-center max-w-md bg-[#252837] p-8 rounded-xl border border-gray-700">
-          <Lock className="w-16 h-16 text-red-400 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-white mb-2">Access Denied</h2>
-          <p className="text-gray-400 mb-6">You don't have permission to view this note.</p>
-          <button
-            onClick={handleCancel}
-            className="bg-orange-600 hover:bg-orange-700 text-white px-6 py-2 rounded-lg transition-colors"
-          >
-            Go Back to Notes
-          </button>
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <Lock className="w-12 h-12 text-[#999999] mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-[#2E2E2E] mb-2">Access Denied</h3>
+          <p className="text-[#666666]">You don't have permission to view this note.</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col h-screen bg-[#1a1b23]">
+    <div className="h-full flex flex-col bg-white overflow-hidden">
       {/* Fixed Header */}
-      <div className="flex-shrink-0 bg-[#252837] border-b border-gray-700 px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <h1 className="text-2xl font-bold text-white">
-              {isNewNote ? 'Create New Note' : (canEdit() ? 'Edit Note' : 'View Note')}
-            </h1>
-            {!isNewNote && (
-              <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                userRole === 'owner' 
-                  ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30' 
-                  : userRole === 'editor' 
-                  ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' 
-                  : 'bg-gray-500/20 text-gray-400 border border-gray-500/30'
-              }`}>
-                {userRole === 'owner' ? 'Owner' : userRole === 'editor' ? 'Editor' : 'Viewer'}
-              </span>
-            )}
-            {isNewNote && (
-              <span className="px-3 py-1 rounded-full text-xs font-semibold bg-green-500/20 text-green-400 border border-green-500/30">
-                New Note
-              </span>
-            )}
-          </div>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={handleCancel}
-              className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors flex items-center gap-2"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              Cancel
-            </button>
-            {(isNewNote || canEdit()) && (
+      <div className="flex-shrink-0 border-b border-[#E0E0E0] bg-white">
+        <div className="max-w-4xl mx-auto w-full p-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
               <button
-                onClick={handleSave}
-                disabled={saving || uploading}
-                className="px-6 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                onClick={handleCancel}
+                className="text-[#666666] hover:text-[#2E2E2E] transition-colors"
               >
-                {saving || uploading ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                    {saving && uploading ? 'Saving...' : saving ? 'Saving...' : 'Uploading...'}
-                  </>
-                ) : (
-                  <>
-                    <Save className="w-4 h-4" />
-                    {isNewNote ? 'Create' : 'Save'}
-                  </>
-                )}
+                <ArrowLeft className="w-5 h-5" />
               </button>
-            )}
+              <h1 className="text-xl font-medium text-[#2E2E2E]">
+                {isNewNote ? 'Create New Note' : (canEdit() ? 'Edit Note' : 'View Note')}
+              </h1>
+              
+              {!isNewNote && (
+                <span className={`px-3 py-1 rounded text-xs font-medium ${
+                  userRole === 'owner' 
+                    ? 'bg-[#B22222] text-white' 
+                    : userRole === 'editor'
+                    ? 'bg-[#4A90E2] text-white'
+                    : 'bg-[#999999] text-white'
+                }`}>
+                  {userRole === 'owner' ? 'Owner' : userRole === 'editor' ? 'Editor' : 'Viewer'}
+                </span>
+              )}
+              
+              {isNewNote && (
+                <span className="px-3 py-1 rounded text-xs font-medium bg-[#50C878] text-white">
+                  New Note
+                </span>
+              )}
+            </div>
+            
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleCancel}
+                className="bg-white hover:bg-[#F5F5F5] text-[#666666] px-5 py-2 rounded transition-colors border border-[#E0E0E0]"
+              >
+                Cancel
+              </button>
+              
+              {(isNewNote || canEdit()) && (
+                <button
+                  onClick={handleSave}
+                  disabled={saving || uploading}
+                  className="bg-[#B22222] hover:bg-[#8B0000] disabled:bg-[#999999] text-white px-6 py-2 rounded flex items-center gap-2 transition-colors"
+                >
+                  {saving || uploading ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                      {saving && uploading ? 'Saving...' : saving ? 'Saving...' : 'Uploading...'}
+                    </>
+                  ) : (
+                    <>
+                      <Save className="w-4 h-4" />
+                      {isNewNote ? 'Create' : 'Save'}
+                    </>
+                  )}
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </div>
 
       {/* Scrollable Content Area */}
-      <div className="flex-1 overflow-y-auto">
-        <div className="max-w-4xl mx-auto p-8">
+      <div className="flex-1 overflow-y-auto bg-white">
+        <div className="max-w-4xl mx-auto w-full p-6">
           {/* Title Input */}
           <div className="mb-6">
-            <label className="block text-gray-300 text-sm mb-2">Title</label>
             <input
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               disabled={!isNewNote && !canEdit()}
-              className="w-full bg-[#1a1d2e] text-white text-xl font-semibold rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-orange-500 border border-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full bg-white text-[#2E2E2E] text-3xl font-bold rounded px-0 py-2 focus:outline-none border-0 disabled:opacity-50 disabled:cursor-not-allowed placeholder-[#999999]"
               placeholder="Note title..."
             />
           </div>
 
           {/* Content Textarea */}
           <div className="mb-6">
-            <label className="block text-gray-300 text-sm mb-2">Content</label>
             <textarea
               value={body}
               onChange={(e) => setBody(e.target.value)}
               disabled={!isNewNote && !canEdit()}
               rows={15}
-              className="w-full bg-[#1a1d2e] text-gray-200 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-orange-500 border border-gray-700 resize-none disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full bg-white text-[#2E2E2E] text-base rounded px-0 py-2 focus:outline-none border-0 resize-none disabled:opacity-50 disabled:cursor-not-allowed placeholder-[#999999] leading-relaxed"
               placeholder="Start writing your note..."
             />
           </div>
@@ -1728,10 +1706,10 @@ const NoteEditor = ({ noteId }) => {
           {/* Attachments Section */}
           <div className="mb-6">
             <div className="flex items-center justify-between mb-4">
-              <label className="block text-gray-300 text-sm">Attachments</label>
+              <label className="block text-[#666666] text-sm font-medium">Attachments</label>
               {canEdit() && (
                 <div className="flex items-center gap-2">
-                  <label className="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg cursor-pointer flex items-center gap-2 transition-colors">
+                  <label className="bg-[#B22222] hover:bg-[#8B0000] text-white px-4 py-2 rounded cursor-pointer flex items-center gap-2 transition-colors text-sm">
                     <Paperclip className="w-4 h-4" />
                     Add Files
                     <input
@@ -1747,10 +1725,10 @@ const NoteEditor = ({ noteId }) => {
             </div>
 
             {uploading && (
-              <div className="bg-[#1a1d2e] rounded-lg p-4 border border-gray-700 mb-4">
+              <div className="bg-[#F5F5F5] rounded p-4 border border-[#E0E0E0] mb-4">
                 <div className="flex items-center gap-3">
-                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-orange-400"></div>
-                  <p className="text-gray-300">
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-[#B22222]"></div>
+                  <p className="text-[#666666]">
                     {isNewNote ? 'Creating note and uploading files...' : 'Uploading files...'}
                   </p>
                 </div>
@@ -1759,27 +1737,28 @@ const NoteEditor = ({ noteId }) => {
 
             {isNewNote && pendingFiles.length > 0 && (
               <div className="space-y-3 mb-4">
-                <p className="text-gray-300 text-sm">Files to be attached after note creation:</p>
+                <p className="text-[#666666] text-sm">Files to be attached after note creation:</p>
                 {pendingFiles.map((file, index) => (
                   <div
                     key={index}
-                    className="bg-[#1a1d2e] rounded-lg p-4 border border-gray-700 flex items-center justify-between"
+                    className="bg-[#F5F5F5] rounded p-4 border border-[#E0E0E0] flex items-center justify-between"
                   >
                     <div className="flex items-center gap-3 flex-1">
-                      <Paperclip className="w-5 h-5 text-gray-400 flex-shrink-0" />
+                      <Paperclip className="w-5 h-5 text-[#666666] flex-shrink-0" />
                       <div className="flex-1 min-w-0">
-                        <p className="text-white font-medium truncate">
+                        <p className="text-[#2E2E2E] font-medium truncate">
                           {file.name}
                         </p>
-                        <p className="text-gray-400 text-sm">
+                        <p className="text-[#999999] text-sm">
                           {formatFileSize(file.size)} • {file.type || 'Unknown type'}
                         </p>
                       </div>
                     </div>
+                    
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() => removePendingFile(index)}
-                        className="text-red-400 hover:text-red-300 p-2 transition-colors"
+                        className="text-[#B22222] hover:text-[#8B0000] p-2 transition-colors"
                         title="Remove file"
                       >
                         <X className="w-4 h-4" />
@@ -1795,34 +1774,36 @@ const NoteEditor = ({ noteId }) => {
                 {attachments.map((attachment) => (
                   <div
                     key={attachment.id}
-                    className="bg-[#1a1d2e] rounded-lg p-4 border border-gray-700 flex items-center justify-between"
+                    className="bg-[#F5F5F5] rounded p-4 border border-[#E0E0E0] flex items-center justify-between"
                   >
                     <div className="flex items-center gap-3 flex-1">
-                      <Paperclip className="w-5 h-5 text-gray-400 flex-shrink-0" />
+                      <Paperclip className="w-5 h-5 text-[#666666] flex-shrink-0" />
                       <div className="flex-1 min-w-0">
-                        <p className="text-white font-medium truncate">
+                        <p className="text-[#2E2E2E] font-medium truncate">
                           {attachment.file_name}
                         </p>
-                        <p className="text-gray-400 text-sm">
+                        <p className="text-[#999999] text-sm">
                           {formatFileSize(attachment.file_size)} • {attachment.mime_type}
                         </p>
                       </div>
                     </div>
+                    
                     <div className="flex items-center gap-2">
                       {attachment.signedUrl && (
                         <a
                           href={attachment.signedUrl}
                           download={attachment.file_name}
-                          className="text-green-400 hover:text-green-300 p-2 transition-colors"
+                          className="text-[#50C878] hover:text-[#3DA863] p-2 transition-colors"
                           title="Download"
                         >
                           <Download className="w-4 h-4" />
                         </a>
                       )}
+                      
                       {canEdit() && (
                         <button
                           onClick={() => handleDeleteAttachment(attachment.id, attachment.file_path)}
-                          className="text-red-400 hover:text-red-300 p-2 transition-colors"
+                          className="text-[#B22222] hover:text-[#8B0000] p-2 transition-colors"
                           title="Delete"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -1833,11 +1814,11 @@ const NoteEditor = ({ noteId }) => {
                 ))}
               </div>
             ) : !isNewNote && (
-              <div className="bg-[#1a1d2e] rounded-lg p-8 border border-gray-700 text-center">
-                <Paperclip className="w-12 h-12 text-gray-500 mx-auto mb-3" />
-                <p className="text-gray-400 text-sm">
-                  {canEdit()
-                    ? 'No attachments yet. Add files to this note.'
+              <div className="bg-[#F5F5F5] rounded p-8 border border-[#E0E0E0] text-center">
+                <Paperclip className="w-12 h-12 text-[#999999] mx-auto mb-3" />
+                <p className="text-[#666666] text-sm">
+                  {canEdit() 
+                    ? 'No attachments yet. Add files to this note.' 
                     : 'No attachments for this note.'
                   }
                 </p>
@@ -1845,9 +1826,9 @@ const NoteEditor = ({ noteId }) => {
             )}
 
             {isNewNote && pendingFiles.length === 0 && (
-              <div className="bg-[#1a1d2e] rounded-lg p-8 border border-gray-700 text-center">
-                <Paperclip className="w-12 h-12 text-gray-500 mx-auto mb-3" />
-                <p className="text-gray-400 text-sm">
+              <div className="bg-[#F5F5F5] rounded p-8 border border-[#E0E0E0] text-center">
+                <Paperclip className="w-12 h-12 text-[#999999] mx-auto mb-3" />
+                <p className="text-[#666666] text-sm">
                   Add files to attach to this note. They will be uploaded after the note is created.
                 </p>
               </div>
@@ -1856,8 +1837,8 @@ const NoteEditor = ({ noteId }) => {
 
           {/* Info Messages */}
           {!isNewNote && !canEdit() && (
-            <div className="mt-6 p-4 bg-blue-500/20 border border-blue-500/30 rounded-lg">
-              <div className="flex items-center gap-2 text-blue-400">
+            <div className="mt-6 p-4 bg-[#E3F2FD] border border-[#90CAF9] rounded">
+              <div className="flex items-center gap-2 text-[#1976D2]">
                 <Eye className="w-4 h-4" />
                 <p className="text-sm">You have view-only access to this note.</p>
               </div>
@@ -1865,8 +1846,8 @@ const NoteEditor = ({ noteId }) => {
           )}
 
           {isNewNote && (
-            <div className="mt-6 p-4 bg-green-500/20 border border-green-500/30 rounded-lg">
-              <div className="flex items-center gap-2 text-green-400">
+            <div className="mt-6 p-4 bg-[#E8F5E9] border border-[#81C784] rounded">
+              <div className="flex items-center gap-2 text-[#388E3C]">
                 <Edit3 className="w-4 h-4" />
                 <p className="text-sm">Create a new note. You will be the owner and can share it with others.</p>
               </div>

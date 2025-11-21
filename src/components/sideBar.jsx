@@ -286,11 +286,7 @@
 // export default Sidebar;
 
 
-
-
-
 "use client";
-
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Lock, Users, BarChart3, FileText, Settings, ChevronLeft, ChevronRight } from 'lucide-react';
@@ -321,58 +317,57 @@ const Sidebar = () => {
   };
 
   return (
-    <div
-      className={`${
-        isCollapsed ? 'w-20' : 'w-64'
-      } bg-[#1a1d2e] border-r border-gray-700 flex flex-col transition-all duration-300 ease-in-out`}
-    >
+    <aside className={`bg-[#EBEBEB] border-r border-[#E0E0E0] flex flex-col h-screen transition-all duration-300 ${
+      isCollapsed ? 'w-16' : 'w-64'
+    }`}>
       {/* Header with Toggle Button */}
-      <div className="h-16 flex items-center justify-between px-4 border-b border-gray-700">
-        {isCollapsed ? (
-          <div className="w-10 h-10 bg-gradient-to-br from-orange-500 to-red-600 rounded-lg flex items-center justify-center text-white font-bold text-lg">
-            N
-          </div>
-        ) : (
-          <h1 className="text-xl font-bold text-white">NoteSync Pro</h1>
+      <div className="p-4 border-b border-[#E0E0E0] flex items-center justify-between">
+        {!isCollapsed && (
+          <h1 className="text-2xl font-bold text-[#2E2E2E]">NoteSync Pro</h1>
         )}
+        
         <button
           onClick={toggleSidebar}
-          className="p-2 hover:bg-gray-700 rounded-lg transition-colors text-gray-400 hover:text-white"
+          className="text-[#666666] hover:text-[#2E2E2E] transition-colors p-1 rounded-lg hover:bg-[#E0E0E0]"
         >
           {isCollapsed ? (
-            <ChevronRight className="w-5 h-5" />
+            <ChevronRight className="w-4 h-4" />
           ) : (
-            <ChevronLeft className="w-5 h-5" />
+            <ChevronLeft className="w-4 h-4" />
           )}
         </button>
       </div>
-
+      
       {/* Navigation Menu */}
-      <nav className="flex-1 py-4 px-3 overflow-y-auto">
+      <nav className="flex-1 px-3 py-4 overflow-y-auto">
         {menuItems.map((item) => {
           const Icon = item.icon;
           const active = isActive(item.link);
-
+          
           return (
-            <Link
-              key={item.id}
-              href={item.link}
-              className={`flex items-center gap-3 px-3 py-3 mb-2 rounded-lg transition-all duration-200 ${
-                active
-                  ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30'
-                  : 'text-gray-400 hover:bg-gray-700 hover:text-white'
-              } ${isCollapsed ? 'justify-center' : ''}`}
-              title={isCollapsed ? item.label : ''}
-            >
-              <Icon className="w-5 h-5 flex-shrink-0" />
-              {!isCollapsed && (
-                <span className="text-sm font-medium">{item.label}</span>
-              )}
+            <Link href={item.link} key={item.id}>
+              <button
+                className={`w-full flex items-center rounded-lg mb-2 transition-colors ${
+                  active
+                    ? 'bg-[#DCDCDC] text-[#2E2E2E]'
+                    : 'text-[#666666] hover:bg-[#E0E0E0] hover:text-[#2E2E2E]'
+                } ${
+                  isCollapsed 
+                    ? 'justify-center p-3' 
+                    : 'px-4 py-3 gap-3'
+                }`}
+                title={isCollapsed ? item.label : ''}
+              >
+                <Icon className="w-5 h-5" />
+                {!isCollapsed && (
+                  <span className="font-medium">{item.label}</span>
+                )}
+              </button>
             </Link>
           );
         })}
       </nav>
-    </div>
+    </aside>
   );
 };
 
