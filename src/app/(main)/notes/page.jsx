@@ -34,13 +34,13 @@ export default function NotesPage() {
   return (
     <main className="flex-1 overflow-y-auto h-full bg-white">
       <div className="h-full flex items-center justify-center">
-        <Suspense fallback={
+        {/* <Suspense fallback={
           <div className="w-full max-w-2xl p-8">
             <NotesLoading count={6} />
           </div>
-        }>
+        }> */}
           <AllNotesWelcome />
-        </Suspense>
+        {/* </Suspense> */}
       </div>
     </main>
   );

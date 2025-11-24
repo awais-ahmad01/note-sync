@@ -24,9 +24,9 @@ const SharedByMe = () => {
   return (
     <main className="flex-1 overflow-y-auto h-full bg-white">
       <div className="h-full flex items-center justify-center">
-        <Suspense fallback={<NotesLoading count={6} />}>
+        {/* <Suspense fallback={<NotesLoading count={6} />}> */}
           <SharedByMeWelcome />
-        </Suspense>
+        {/* </Suspense> */}
       </div>
     </main>
   );

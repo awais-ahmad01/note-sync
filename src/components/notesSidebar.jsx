@@ -535,7 +535,6 @@
 
 
 
-
 "use client";
 import React, { useState, useEffect } from "react";
 import { supabase } from "../lib/supabaseClient";
@@ -923,9 +922,10 @@ const NoteSidebarItem = ({ note, isSelected, onSelect, onDelete, onShare, getNot
         </div>
       </div>
 
+      {/* Updated Tooltip with Light Theme */}
       {showTooltip && (
         <div 
-          className="fixed z-50 bg-[#1a1d2e] text-white text-xs rounded p-3 shadow-xl border border-[#374151] min-w-48 pointer-events-none"
+          className="fixed z-50 bg-white text-[#2E2E2E] text-xs rounded-lg p-3 shadow-xl border border-[#E0E0E0] min-w-48 pointer-events-none"
           style={{
             top: `${tooltipPosition.top}px`,
             left: `${tooltipPosition.left}px`,
@@ -934,20 +934,21 @@ const NoteSidebarItem = ({ note, isSelected, onSelect, onDelete, onShare, getNot
         >
           <div className="space-y-2">
             <div className="space-y-1.5">
-              <div className="flex items-center gap-2 text-gray-300">
+              <div className="flex items-center gap-2 text-[#666666]">
                 <Calendar className="w-3 h-3" />
                 <span>Created: {formatDate(note.created_at)}</span>
               </div>
-              <div className="flex items-center gap-2 text-gray-300">
+              <div className="flex items-center gap-2 text-[#666666]">
                 <Calendar className="w-3 h-3" />
                 <span>Modified: {formatDate(note.updated_at)}</span>
               </div>
               
-              <div className="flex items-center gap-2 text-gray-300">
+              {/* Role Badge in Tooltip */}
+              <div className="flex items-center gap-2 text-[#666666]">
                 <div className={`w-2 h-2 rounded-full ${
-                  note.userRole === 'owner' ? 'bg-purple-400' :
-                  note.userRole === 'editor' ? 'bg-blue-400' :
-                  'bg-gray-400'
+                  note.userRole === 'owner' ? 'bg-[#B22222]' :
+                  note.userRole === 'editor' ? 'bg-[#4A90E2]' :
+                  'bg-[#999999]'
                 }`} />
                 <span className="capitalize">
                   {note.userRole === 'owner' ? 'Owner' : 
@@ -956,11 +957,12 @@ const NoteSidebarItem = ({ note, isSelected, onSelect, onDelete, onShare, getNot
                 </span>
               </div>
 
-              <div className="flex items-center gap-2 text-gray-300">
+              {/* Note Type in Tooltip */}
+              <div className="flex items-center gap-2 text-[#666666]">
                 <div className={`w-2 h-2 rounded-full ${
-                  note.noteType === 'private' ? 'bg-blue-400' :
-                  note.noteType === 'shared-by-me' ? 'bg-green-400' :
-                  'bg-purple-400'
+                  note.noteType === 'private' ? 'bg-[#4A90E2]' :
+                  note.noteType === 'shared-by-me' ? 'bg-[#50C878]' :
+                  'bg-[#B22222]'
                 }`} />
                 <span className="capitalize">
                   {note.noteType === 'shared-by-me' ? 'Shared by you' : 
@@ -970,7 +972,7 @@ const NoteSidebarItem = ({ note, isSelected, onSelect, onDelete, onShare, getNot
               </div>
 
               {note.noteType === 'shared-with-me' && (
-                <div className="flex items-center gap-2 text-gray-300">
+                <div className="flex items-center gap-2 text-[#666666]">
                   <User className="w-3 h-3" />
                   <span>Shared by: {note.sharedBy}</span>
                 </div>
@@ -978,6 +980,7 @@ const NoteSidebarItem = ({ note, isSelected, onSelect, onDelete, onShare, getNot
             </div>
           </div>
           
+          {/* Tooltip arrow */}
           <div 
             className="absolute top-1/2 -left-2 transform -translate-y-1/2"
             style={{
@@ -985,7 +988,7 @@ const NoteSidebarItem = ({ note, isSelected, onSelect, onDelete, onShare, getNot
               height: 0,
               borderTop: '6px solid transparent',
               borderBottom: '6px solid transparent',
-              borderRight: '6px solid #374151'
+              borderRight: '6px solid #E0E0E0'
             }}
           />
         </div>

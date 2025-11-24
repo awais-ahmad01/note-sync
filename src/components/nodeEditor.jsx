@@ -1259,19 +1259,74 @@
 // export default NoteEditor;
 
 
-
-
 'use client';
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { useRouter } from 'next/navigation';
 import { Save, Eye, Edit3, Lock, ArrowLeft, Paperclip, X, Download, Trash2 } from 'lucide-react';
 
+// Skeleton Loading Components
+const NoteEditorSkeleton = () => {
+  return (
+    <div className="h-full flex flex-col bg-white overflow-hidden">
+      {/* Header Skeleton */}
+      <div className="flex-shrink-0 border-b border-[#E0E0E0] bg-white">
+        <div className="max-w-4xl mx-auto w-full p-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-5 h-5 bg-[#E0E0E0] rounded animate-pulse"></div>
+              <div className="h-6 bg-[#E0E0E0] rounded w-48 animate-pulse"></div>
+              <div className="h-6 bg-[#E0E0E0] rounded w-20 animate-pulse"></div>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="h-10 bg-[#E0E0E0] rounded w-20 animate-pulse"></div>
+              <div className="h-10 bg-[#E0E0E0] rounded w-24 animate-pulse"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Content Skeleton */}
+      <div className="flex-1 overflow-y-auto bg-white">
+        <div className="max-w-4xl mx-auto w-full p-6">
+          {/* Title Skeleton */}
+          <div className="mb-6">
+            <div className="h-12 bg-[#E0E0E0] rounded animate-pulse"></div>
+          </div>
+
+          {/* Content Skeleton */}
+          <div className="mb-6">
+            <div className="space-y-3">
+              {Array.from({ length: 10 }, (_, i) => (
+                <div key={i} className="h-4 bg-[#E0E0E0] rounded animate-pulse" style={{
+                  width: i % 3 === 0 ? '100%' : i % 3 === 1 ? '80%' : '60%'
+                }}></div>
+              ))}
+            </div>
+          </div>
+
+          {/* Attachments Skeleton */}
+          <div className="mb-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="h-4 bg-[#E0E0E0] rounded w-24 animate-pulse"></div>
+              <div className="h-10 bg-[#E0E0E0] rounded w-32 animate-pulse"></div>
+            </div>
+            <div className="bg-[#F5F5F5] rounded p-8 border border-[#E0E0E0] text-center">
+              <div className="w-12 h-12 bg-[#E0E0E0] rounded-full mx-auto mb-3 animate-pulse"></div>
+              <div className="h-4 bg-[#E0E0E0] rounded w-64 mx-auto animate-pulse"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const NoteEditor = ({ noteId }) => {
   const [note, setNote] = useState(null);
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true); // Start with loading true
   const [saving, setSaving] = useState(false);
   const [userRole, setUserRole] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
@@ -1285,6 +1340,7 @@ const NoteEditor = ({ noteId }) => {
   useEffect(() => {
     if (isNewNote) {
       setTitle('Untitled');
+      setLoading(false); // No loading for new notes
     }
   }, [isNewNote]);
 
@@ -1295,16 +1351,22 @@ const NoteEditor = ({ noteId }) => {
   useEffect(() => {
     if (isNewNote) {
       setUserRole('owner');
-      setLoading(false);
     } else if (noteId && currentUser) {
       fetchNoteAndPermissions();
       fetchAttachments();
+    } else if (noteId && !currentUser) {
+      // Still waiting for user authentication
+      setLoading(true);
     }
   }, [noteId, currentUser, isNewNote]);
 
   const getUser = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     setCurrentUser(user);
+    // If it's a new note, we don't need to wait for user data
+    if (isNewNote) {
+      setLoading(false);
+    }
   };
 
   const fetchNoteAndPermissions = async () => {
@@ -1585,15 +1647,9 @@ const NoteEditor = ({ noteId }) => {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
+  // Show skeleton loading state
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#B22222] mx-auto mb-4"></div>
-          <p className="text-[#666666]">Loading note...</p>
-        </div>
-      </div>
-    );
+    return <NoteEditorSkeleton />;
   }
 
   if (!isNewNote && !canView()) {
