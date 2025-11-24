@@ -534,7 +534,6 @@
 
 
 
-
 "use client";
 import React, { useState, useEffect } from "react";
 import { supabase } from "../lib/supabaseClient";
@@ -565,6 +564,8 @@ const NotesSidebar = ({ sidebarCollapsed, currentUser }) => {
   useEffect(() => {
     if (currentUser) {
       fetchAllNotes();
+      const cleanup = setupRealtimeSubscription();
+      return cleanup;
     }
   }, [currentUser]);
 
@@ -651,6 +652,233 @@ const NotesSidebar = ({ sidebarCollapsed, currentUser }) => {
     }
   };
 
+  const setupRealtimeSubscription = () => {
+    if (!currentUser) return;
+
+    // Subscribe to notes table for INSERT events (new notes created by current user)
+    const notesInsertSubscription = supabase
+      .channel('notes_insert_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'notes',
+          filter: `owner_id=eq.${currentUser.id}`
+        },
+        (payload) => {
+          console.log('New note created:', payload);
+          handleNoteInsert(payload);
+        }
+      )
+      .subscribe();
+
+    // Subscribe to notes table for UPDATE events
+    const notesUpdateSubscription = supabase
+      .channel('notes_update_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'notes',
+        },
+        (payload) => {
+          console.log('Note update detected:', payload);
+          handleNoteUpdate(payload);
+        }
+      )
+      .subscribe();
+
+    // Subscribe to notes table for DELETE events
+    const notesDeleteSubscription = supabase
+      .channel('notes_delete_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: 'DELETE',
+          schema: 'public',
+          table: 'notes',
+        },
+        (payload) => {
+          console.log('Note deletion detected:', payload);
+          handleNoteDeletion(payload);
+        }
+      )
+      .subscribe();
+
+    // Subscribe to note_shares table for changes (REMOVED filter to catch all shares)
+    const noteSharesSubscription = supabase
+      .channel('note_shares_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'note_shares',
+        },
+        (payload) => {
+          console.log('Note shares change detected:', payload);
+          handleNoteSharesChange(payload);
+        }
+      )
+      .subscribe();
+
+    // Cleanup subscriptions on unmount
+    return () => {
+      notesInsertSubscription.unsubscribe();
+      notesUpdateSubscription.unsubscribe();
+      notesDeleteSubscription.unsubscribe();
+      noteSharesSubscription.unsubscribe();
+    };
+  };
+
+  const handleNoteInsert = (payload) => {
+    // Add the newly created note to the list
+    const newNote = {
+      ...payload.new,
+      userRole: 'owner',
+      noteType: 'private',
+      canView: true,
+      canEdit: true,
+      sharedBy: currentUser.name || currentUser.email || 'You',
+      isOwner: true
+    };
+
+    setAllNotes(prevNotes => [newNote, ...prevNotes]);
+  };
+
+  const handleNoteUpdate = (payload) => {
+    // Update the note in the list if it exists
+    setAllNotes(prevNotes =>
+      prevNotes.map(note =>
+        note.id === payload.new.id
+          ? { ...note, ...payload.new, updated_at: payload.new.updated_at }
+          : note
+      )
+    );
+  };
+
+  const handleNoteDeletion = (payload) => {
+    // Remove the deleted note from the list
+    setAllNotes(prevNotes =>
+      prevNotes.filter(note => note.id !== payload.old.id)
+    );
+
+    // If the current note is deleted, redirect to notes page
+    if (noteId === payload.old.id) {
+      router.push('/notes');
+    }
+  };
+
+  const handleNoteSharesChange = async (payload) => {
+    console.log('Processing note shares change:', payload);
+    
+    // Check if this share involves the current user
+    const isForCurrentUser = payload.new?.user_id === currentUser.id || payload.old?.user_id === currentUser.id;
+    
+    // If a new share is added
+    if (payload.eventType === 'INSERT') {
+      // If shared WITH current user, fetch and add the note
+      if (payload.new.user_id === currentUser.id) {
+        try {
+          const { data: newNote, error } = await supabase
+            .from('notes')
+            .select('*, owner:user_profiles!fk_notes_owner_id(email, name)')
+            .eq('id', payload.new.note_id)
+            .single();
+
+          if (error) {
+            console.error('Error fetching new shared note:', error);
+            return;
+          }
+
+          if (newNote) {
+            const processedNote = {
+              ...newNote,
+              userRole: payload.new.role,
+              noteType: 'shared-with-me',
+              sharedBy: newNote.owner?.name || newNote.owner?.email || 'Unknown User',
+              canView: true,
+              canEdit: payload.new.role === 'editor' || payload.new.role === 'owner',
+              isOwner: false
+            };
+
+            setAllNotes(prevNotes => {
+              const noteExists = prevNotes.find(note => note.id === processedNote.id);
+              if (noteExists) {
+                return prevNotes.map(note => 
+                  note.id === processedNote.id ? processedNote : note
+                );
+              }
+              return [processedNote, ...prevNotes];
+            });
+          }
+        } catch (error) {
+          console.error('Error processing new share:', error);
+        }
+      }
+      // If shared BY current user, update the note type to 'shared-by-me'
+      else {
+        setAllNotes(prevNotes =>
+          prevNotes.map(note =>
+            note.id === payload.new.note_id && note.isOwner
+              ? { ...note, noteType: 'shared-by-me' }
+              : note
+          )
+        );
+      }
+    }
+    // If a share is removed
+    else if (payload.eventType === 'DELETE') {
+      // If unshared FROM current user, remove from list
+      if (payload.old.user_id === currentUser.id) {
+        setAllNotes(prevNotes => 
+          prevNotes.filter(note => 
+            !(note.id === payload.old.note_id && note.noteType === 'shared-with-me')
+          )
+        );
+      }
+      // If current user removed a share they created, check if any shares remain
+      else {
+        const noteId = payload.old.note_id;
+        
+        // Check if there are any remaining shares for this note
+        supabase
+          .from('note_shares')
+          .select('id')
+          .eq('note_id', noteId)
+          .then(({ data: remainingShares }) => {
+            const hasRemainingShares = remainingShares && remainingShares.length > 0;
+            
+            setAllNotes(prevNotes =>
+              prevNotes.map(note =>
+                note.id === noteId && note.isOwner
+                  ? { ...note, noteType: hasRemainingShares ? 'shared-by-me' : 'private' }
+                  : note
+              )
+            );
+          });
+      }
+    }
+    // If a share is updated (role change)
+    else if (payload.eventType === 'UPDATE') {
+      if (payload.new.user_id === currentUser.id) {
+        setAllNotes(prevNotes =>
+          prevNotes.map(note =>
+            note.id === payload.new.note_id && note.noteType === 'shared-with-me'
+              ? {
+                  ...note,
+                  userRole: payload.new.role,
+                  canEdit: payload.new.role === 'editor' || payload.new.role === 'owner'
+                }
+              : note
+          )
+        );
+      }
+    }
+  };
+
   const getFilteredNotes = () => {
     let filteredBySection = allNotes;
 
@@ -692,8 +920,6 @@ const NotesSidebar = ({ sidebarCollapsed, currentUser }) => {
         throw error;
       }
 
-      await fetchAllNotes();
-      
       if (noteId === noteId) {
         router.push('/notes');
       }
@@ -770,7 +996,6 @@ const NotesSidebar = ({ sidebarCollapsed, currentUser }) => {
       <div className={`bg-[#F5F5F5] border-r border-[#E0E0E0] transition-all duration-300 ${
         sidebarCollapsed ? 'w-0' : 'w-80'
       } flex flex-col overflow-hidden`}>
-        {/* Sidebar Header */}
         <div className="p-4 border-b border-[#E0E0E0]">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-base font-medium text-[#2E2E2E] flex items-center gap-2">
@@ -786,7 +1011,6 @@ const NotesSidebar = ({ sidebarCollapsed, currentUser }) => {
             </button>
           </div>
           
-          {/* Search Bar */}
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[#999999] w-4 h-4" />
             <input
@@ -798,13 +1022,11 @@ const NotesSidebar = ({ sidebarCollapsed, currentUser }) => {
             />
           </div>
 
-          {/* Stats */}
           <div className="mt-3">
             <p className="text-xs text-[#999999]">{getSectionStats()}</p>
           </div>
         </div>
 
-        {/* Notes List */}
         <div className="flex-1 overflow-y-auto">
           {loading ? (
             <NotesLoadingSkeleton />
@@ -833,7 +1055,6 @@ const NotesSidebar = ({ sidebarCollapsed, currentUser }) => {
         </div>
       </div>
 
-      {/* Share Modal */}
       {selectedNote && (
         <ShareModal
           isOpen={isShareModalOpen}
@@ -859,24 +1080,12 @@ const NoteSidebarItem = ({ note, isSelected, onSelect, onDelete, onShare, getNot
     setShowTooltip(true);
   };
 
-  const handleMouseLeave = () => {
-    setShowTooltip(false);
-  };
-
-  const handleDelete = (e) => {
-    onDelete(note.id, e);
-  };
-
-  const handleShare = (e) => {
-    onShare(note, e);
-  };
-
   return (
     <>
       <div
         onClick={() => onSelect(note)}
         onMouseEnter={handleMouseEnter}
-        onMouseLeave={handleMouseLeave}
+        onMouseLeave={() => setShowTooltip(false)}
         className={`p-3 rounded cursor-pointer transition-all mb-1 group relative ${
           isSelected
             ? 'bg-[#E8E8E8] text-[#2E2E2E]'
@@ -899,9 +1108,9 @@ const NoteSidebarItem = ({ note, isSelected, onSelect, onDelete, onShare, getNot
               </div>
               
               {note.isOwner && (
-                <div className="flex items-center gap-1 flex-shrink-0 ml-2">
+                <div className="flex items-center gap-1 shrink-0 ml-2">
                   <button
-                    onClick={handleShare}
+                    onClick={(e) => onShare(note, e)}
                     className="text-[#666666] hover:text-[#2E2E2E] p-1 transition-colors"
                     title="Share note"
                   >
@@ -909,7 +1118,7 @@ const NoteSidebarItem = ({ note, isSelected, onSelect, onDelete, onShare, getNot
                   </button>
                   
                   <button
-                    onClick={handleDelete}
+                    onClick={(e) => onDelete(note.id, e)}
                     className="text-[#666666] hover:text-[#B22222] p-1 transition-colors"
                     title="Delete note"
                   >
@@ -922,7 +1131,6 @@ const NoteSidebarItem = ({ note, isSelected, onSelect, onDelete, onShare, getNot
         </div>
       </div>
 
-      {/* Updated Tooltip with Light Theme */}
       {showTooltip && (
         <div 
           className="fixed z-50 bg-white text-[#2E2E2E] text-xs rounded-lg p-3 shadow-xl border border-[#E0E0E0] min-w-48 pointer-events-none"
@@ -943,7 +1151,6 @@ const NoteSidebarItem = ({ note, isSelected, onSelect, onDelete, onShare, getNot
                 <span>Modified: {formatDate(note.updated_at)}</span>
               </div>
               
-              {/* Role Badge in Tooltip */}
               <div className="flex items-center gap-2 text-[#666666]">
                 <div className={`w-2 h-2 rounded-full ${
                   note.userRole === 'owner' ? 'bg-[#B22222]' :
@@ -957,7 +1164,6 @@ const NoteSidebarItem = ({ note, isSelected, onSelect, onDelete, onShare, getNot
                 </span>
               </div>
 
-              {/* Note Type in Tooltip */}
               <div className="flex items-center gap-2 text-[#666666]">
                 <div className={`w-2 h-2 rounded-full ${
                   note.noteType === 'private' ? 'bg-[#4A90E2]' :
@@ -980,7 +1186,6 @@ const NoteSidebarItem = ({ note, isSelected, onSelect, onDelete, onShare, getNot
             </div>
           </div>
           
-          {/* Tooltip arrow */}
           <div 
             className="absolute top-1/2 -left-2 transform -translate-y-1/2"
             style={{
