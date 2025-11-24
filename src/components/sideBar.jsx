@@ -320,7 +320,7 @@ const Sidebar = () => {
     <aside className={`bg-[#EBEBEB] border-r border-[#E0E0E0] flex flex-col h-screen transition-all duration-300 ${
       isCollapsed ? 'w-16' : 'w-64'
     }`}>
-      {/* Header with Toggle Button */}
+     
       <div className="p-4 border-b border-[#E0E0E0] flex items-center justify-between">
         {!isCollapsed && (
           <h1 className="text-2xl font-bold text-[#2E2E2E]">NoteSync Pro</h1>
@@ -338,7 +338,7 @@ const Sidebar = () => {
         </button>
       </div>
       
-      {/* Navigation Menu */}
+     
       <nav className="flex-1 px-3 py-4 overflow-y-auto">
         {menuItems.map((item) => {
           const Icon = item.icon;

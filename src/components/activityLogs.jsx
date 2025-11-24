@@ -471,12 +471,12 @@ const ActivityLogsContent = () => {
     return () => supabase.removeChannel(subscription);
   }, [currentUser]);
 
-  // Mark as read when component mounts
+  
   useEffect(() => {
     if (currentUser) {
       const timer = setTimeout(() => {
         handleMarkAsRead();
-      }, 1000); // Wait 1 second before marking as read
+      }, 1000); 
 
       return () => clearTimeout(timer);
     }

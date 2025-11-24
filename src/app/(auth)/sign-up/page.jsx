@@ -107,6 +107,9 @@
 // };
 // export default SignUp;
 
+
+
+
 'use client';
 import Link from 'next/link';
 import React, { useState } from 'react';
@@ -145,15 +148,15 @@ const SignUp = ({ onSignInClick }) => {
   return (
     <div className="min-h-screen bg-white flex items-center justify-center p-4">
       <div className="w-full max-w-md bg-white rounded-2xl p-8 border border-[#E0E0E0] shadow-lg">
-        {/* Header */}
+       
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-[#2E2E2E] mb-2">NoteSync Pro</h1>
           <p className="text-[#666666]">Create your account</p>
         </div>
 
-        {/* Form */}
+      
         <div className="space-y-5">
-          {/* Full Name Input */}
+     
           <div>
             <label className="block text-[#2E2E2E] text-sm font-medium mb-2">Full Name</label>
             <input
@@ -165,7 +168,7 @@ const SignUp = ({ onSignInClick }) => {
             />
           </div>
 
-          {/* Email Input */}
+        
           <div>
             <label className="block text-[#2E2E2E] text-sm font-medium mb-2">Email</label>
             <input
@@ -177,7 +180,7 @@ const SignUp = ({ onSignInClick }) => {
             />
           </div>
 
-          {/* Password Input */}
+
           <div>
             <label className="block text-[#2E2E2E] text-sm font-medium mb-2">Password</label>
             <input
@@ -189,7 +192,7 @@ const SignUp = ({ onSignInClick }) => {
             />
           </div>
 
-          {/* Submit Button */}
+         
           <button
             onClick={handleSubmit}
             className="w-full bg-[#B22222] hover:bg-[#8B0000] text-white font-semibold rounded-lg py-3 transition-colors mt-6"
@@ -198,7 +201,7 @@ const SignUp = ({ onSignInClick }) => {
           </button>
         </div>
 
-        {/* Sign In Link */}
+        
         <p className="text-center text-[#666666] mt-6">
           Already have an account?{' '}
           <Link href='/sign-in'>

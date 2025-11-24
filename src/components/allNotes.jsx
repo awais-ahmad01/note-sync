@@ -77,7 +77,7 @@ const AllNotes = async () => {
     );
   }
 
-  // This component is now just a fallback - the main notes list is in the layout sidebar
+ 
   return null;
 };
 

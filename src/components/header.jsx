@@ -360,7 +360,7 @@ const Header = () => {
   const pathname = usePathname();
   const { unreadCount } = useActivityLogs();
 
-  // Check if we're on activity logs page
+ 
   const isActivityLogsPage = pathname?.includes('/activity-logs');
 
   useEffect(() => {
@@ -384,6 +384,7 @@ const Header = () => {
 
   const handleLogout = async () => {
     try {
+      console.log('Logging out...');
       setLogoutLoading(true);
       const { error } = await supabase.auth.signOut();
       
@@ -435,7 +436,6 @@ const Header = () => {
       {/* Empty space on left for balance */}
       <div className="flex-1"></div>
       
-      {/* User Section */}
       <div className="flex items-center gap-4">
         {loading ? (
           <div className="flex items-center gap-3">
@@ -447,7 +447,7 @@ const Header = () => {
           </div>
         ) : user ? (
           <div className="flex items-center gap-3">
-            {/* Activity Logs Notification Bell */}
+           
             <Link href="/activity-logs">
               <button
                 className={`relative text-[#666666] hover:text-[#B22222] hover:bg-[#FFE5E5] rounded-lg transition-colors p-2 ${
@@ -464,7 +464,7 @@ const Header = () => {
               </button>
             </Link>
 
-            {/* User Avatar and Info */}
+      
             <div className="flex items-center gap-3">
               {getAvatarDisplay()}
               <div className="hidden md:block text-right">
@@ -477,7 +477,7 @@ const Header = () => {
               </div>
             </div>
             
-            {/* Logout Button */}
+           
             <button
               onClick={handleLogout}
               disabled={logoutLoading}
@@ -494,7 +494,7 @@ const Header = () => {
           </div>
         ) : (
           <div className="flex items-center gap-3">
-            {/* User Info for non-logged in */}
+           
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 bg-[#E0E0E0] rounded-full flex items-center justify-center text-[#2E2E2E] font-semibold text-xs">
                 U
@@ -505,8 +505,8 @@ const Header = () => {
               </div>
             </div>
             
-            {/* Login Button */}
-            <Link href="/auth/login" className="block">
+            
+            <Link href="/sign-in" className="block">
               <button
                 className="text-[#666666] hover:text-[#B22222] hover:bg-[#FFE5E5] rounded-lg transition-colors p-2"
                 title="Login"

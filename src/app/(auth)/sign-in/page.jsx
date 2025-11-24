@@ -143,22 +143,21 @@ const SignIn = ({ onSignUpClick }) => {
   return (
     <div className="min-h-screen bg-white flex items-center justify-center p-4">
       <div className="w-full max-w-md bg-white rounded-2xl p-8 border border-[#E0E0E0] shadow-lg">
-        {/* Header */}
+      
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-[#2E2E2E] mb-2">NoteSync Pro</h1>
           <p className="text-[#666666]">Welcome back</p>
         </div>
 
-        {/* Error Message */}
+      
         {error && (
           <div className="mb-4 p-3 bg-[#FFEBEE] border border-[#EF9A9A] text-[#D32F2F] rounded-lg text-sm">
             {error}
           </div>
         )}
 
-        {/* Form */}
-        <div className="space-y-5">
-          {/* Email Input */}
+     <div className="space-y-5">
+        
           <div>
             <label className="block text-[#2E2E2E] text-sm font-medium mb-2">Email</label>
             <input
@@ -170,7 +169,7 @@ const SignIn = ({ onSignUpClick }) => {
             />
           </div>
 
-          {/* Password Input */}
+       
           <div>
             <label className="block text-[#2E2E2E] text-sm font-medium mb-2">Password</label>
             <input
@@ -182,7 +181,7 @@ const SignIn = ({ onSignUpClick }) => {
             />
           </div>
 
-          {/* Submit Button */}
+      
           <button
             onClick={handleSubmit}
             disabled={loading}
@@ -199,7 +198,7 @@ const SignIn = ({ onSignUpClick }) => {
           </button>
         </div>
 
-        {/* Sign Up Link */}
+    
         <p className="text-center text-[#666666] mt-6">
           Don't have an account?{' '}
           <Link href='/sign-up'>

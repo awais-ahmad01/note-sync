@@ -28,10 +28,10 @@ export const ActivityLogsProvider = ({ children }) => {
   useEffect(() => {
     if (!currentUser) return;
 
-    // Initial fetch
+    
     fetchUnreadCount();
 
-    // Subscribe to real-time changes for logs where current user is the actor
+   
     const actorSubscription = supabase
       .channel('activity-logs-actor')
       .on(
@@ -48,7 +48,7 @@ export const ActivityLogsProvider = ({ children }) => {
       )
       .subscribe();
 
-    // Subscribe to note_shares for shared notes (to catch shared_with events)
+    
     const shareSubscription = supabase
       .channel('activity-logs-shares')
       .on(
@@ -59,7 +59,7 @@ export const ActivityLogsProvider = ({ children }) => {
           table: 'activity_logs',
         },
         (payload) => {
-          // Only increment if shared_with matches current user
+        
           if (payload.new.payload?.shared_with === currentUser.id) {
             setUnreadCount(prev => prev + 1);
           }

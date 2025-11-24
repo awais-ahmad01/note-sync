@@ -655,7 +655,7 @@ const NotesSidebar = ({ sidebarCollapsed, currentUser }) => {
   const setupRealtimeSubscription = () => {
     if (!currentUser) return;
 
-    // Subscribe to notes table for INSERT events (new notes created by current user)
+   
     const notesInsertSubscription = supabase
       .channel('notes_insert_changes')
       .on(
@@ -673,7 +673,7 @@ const NotesSidebar = ({ sidebarCollapsed, currentUser }) => {
       )
       .subscribe();
 
-    // Subscribe to notes table for UPDATE events
+  
     const notesUpdateSubscription = supabase
       .channel('notes_update_changes')
       .on(
@@ -690,7 +690,7 @@ const NotesSidebar = ({ sidebarCollapsed, currentUser }) => {
       )
       .subscribe();
 
-    // Subscribe to notes table for DELETE events
+   
     const notesDeleteSubscription = supabase
       .channel('notes_delete_changes')
       .on(
@@ -707,7 +707,7 @@ const NotesSidebar = ({ sidebarCollapsed, currentUser }) => {
       )
       .subscribe();
 
-    // Subscribe to note_shares table for changes (REMOVED filter to catch all shares)
+   
     const noteSharesSubscription = supabase
       .channel('note_shares_changes')
       .on(
@@ -724,7 +724,7 @@ const NotesSidebar = ({ sidebarCollapsed, currentUser }) => {
       )
       .subscribe();
 
-    // Cleanup subscriptions on unmount
+  
     return () => {
       notesInsertSubscription.unsubscribe();
       notesUpdateSubscription.unsubscribe();
@@ -734,7 +734,7 @@ const NotesSidebar = ({ sidebarCollapsed, currentUser }) => {
   };
 
   const handleNoteInsert = (payload) => {
-    // Add the newly created note to the list
+  
     const newNote = {
       ...payload.new,
       userRole: 'owner',
@@ -749,7 +749,7 @@ const NotesSidebar = ({ sidebarCollapsed, currentUser }) => {
   };
 
   const handleNoteUpdate = (payload) => {
-    // Update the note in the list if it exists
+   
     setAllNotes(prevNotes =>
       prevNotes.map(note =>
         note.id === payload.new.id
@@ -760,12 +760,12 @@ const NotesSidebar = ({ sidebarCollapsed, currentUser }) => {
   };
 
   const handleNoteDeletion = (payload) => {
-    // Remove the deleted note from the list
+    
     setAllNotes(prevNotes =>
       prevNotes.filter(note => note.id !== payload.old.id)
     );
 
-    // If the current note is deleted, redirect to notes page
+   
     if (noteId === payload.old.id) {
       router.push('/notes');
     }
@@ -774,12 +774,12 @@ const NotesSidebar = ({ sidebarCollapsed, currentUser }) => {
   const handleNoteSharesChange = async (payload) => {
     console.log('Processing note shares change:', payload);
     
-    // Check if this share involves the current user
+   
     const isForCurrentUser = payload.new?.user_id === currentUser.id || payload.old?.user_id === currentUser.id;
     
-    // If a new share is added
+  
     if (payload.eventType === 'INSERT') {
-      // If shared WITH current user, fetch and add the note
+      
       if (payload.new.user_id === currentUser.id) {
         try {
           const { data: newNote, error } = await supabase
@@ -818,7 +818,7 @@ const NotesSidebar = ({ sidebarCollapsed, currentUser }) => {
           console.error('Error processing new share:', error);
         }
       }
-      // If shared BY current user, update the note type to 'shared-by-me'
+     
       else {
         setAllNotes(prevNotes =>
           prevNotes.map(note =>
@@ -829,9 +829,9 @@ const NotesSidebar = ({ sidebarCollapsed, currentUser }) => {
         );
       }
     }
-    // If a share is removed
+  
     else if (payload.eventType === 'DELETE') {
-      // If unshared FROM current user, remove from list
+     
       if (payload.old.user_id === currentUser.id) {
         setAllNotes(prevNotes => 
           prevNotes.filter(note => 
@@ -839,11 +839,11 @@ const NotesSidebar = ({ sidebarCollapsed, currentUser }) => {
           )
         );
       }
-      // If current user removed a share they created, check if any shares remain
+    
       else {
         const noteId = payload.old.note_id;
         
-        // Check if there are any remaining shares for this note
+       
         supabase
           .from('note_shares')
           .select('id')
@@ -861,7 +861,7 @@ const NotesSidebar = ({ sidebarCollapsed, currentUser }) => {
           });
       }
     }
-    // If a share is updated (role change)
+  
     else if (payload.eventType === 'UPDATE') {
       if (payload.new.user_id === currentUser.id) {
         setAllNotes(prevNotes =>
